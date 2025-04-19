@@ -9,9 +9,20 @@ import plotly.graph_objects as go
 import folium
 from streamlit_folium import folium_static
 import os
+import traceback
+import time
+import logging
+import sys
 
 from utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
 from solver import solve_cvrp, get_route_info
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger("CVRP-Solver")
 
 st.set_page_config(
     page_title="Vehicle Routing Problem Solver",
@@ -70,20 +81,108 @@ if uploaded_file is not None or use_sample_data:
     st.subheader("Customer Data")
     st.dataframe(df)
     
+    if 'log_messages' not in st.session_state:
+        st.session_state.log_messages = []
+    
+    log_container = st.container()
+    
+    def add_log_message(message, level="INFO"):
+        """Add a message to the log with timestamp and level"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        if level == "INFO":
+            logger.info(message)
+            formatted_message = f"{timestamp} - INFO: {message}"
+        elif level == "ERROR":
+            logger.error(message)
+            formatted_message = f"{timestamp} - ERROR: {message}"
+        elif level == "WARNING":
+            logger.warning(message)
+            formatted_message = f"{timestamp} - WARNING: {message}"
+        else:
+            logger.debug(message)
+            formatted_message = f"{timestamp} - DEBUG: {message}"
+        
+        st.session_state.log_messages.append(formatted_message)
+        
+        return message
+    
+    with log_container:
+        log_expander = st.expander("Solver Log", expanded=False)
+        with log_expander:
+            log_text = "\n".join(st.session_state.log_messages)
+            st.text_area("Log Messages", value=log_text, height=300, key="log_display")
+    
     if st.button("Run Optimization"):
+        st.session_state.log_messages = []
+        log_expander.expanded = True
+        
         with st.spinner("Calculating optimal routes..."):
-            distance_matrix = create_distance_matrix(df)
-            
-            demands = df['Demand'].tolist()
-            
-            solution_data = solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity)
-            
-            if solution_data is None:
-                st.error("No feasible solution found. Try increasing the number of vehicles or vehicle capacity.")
-            else:
+            try:
+                add_log_message("Starting optimization process...")
+                add_log_message(f"Number of customers: {len(df) - 1}")
+                add_log_message(f"Number of vehicles: {vehicle_count}")
+                add_log_message(f"Vehicle capacity: {vehicle_capacity}")
+                
+                total_demand = sum(df['Demand'])
+                total_capacity = vehicle_count * vehicle_capacity
+                add_log_message(f"Total demand: {total_demand}")
+                add_log_message(f"Total capacity: {total_capacity}")
+                
+                if total_demand > total_capacity:
+                    error_msg = f"Total demand ({total_demand}) exceeds total capacity ({total_capacity}). The problem is infeasible."
+                    add_log_message(error_msg, "ERROR")
+                    st.error(error_msg)
+                    st.error("Try increasing the number of vehicles or vehicle capacity.")
+                    st.stop()
+                
+                add_log_message("Creating distance matrix...")
+                distance_matrix = create_distance_matrix(df)
+                add_log_message(f"Distance matrix shape: {distance_matrix.shape}")
+                
+                add_log_message("Extracting demand values...")
+                demands = df['Demand'].tolist()
+                
+                add_log_message("Solving CVRP problem using OR-Tools...")
+                start_time = time.time()
+                solution_data = solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity)
+                solve_time = time.time() - start_time
+                add_log_message(f"Solver finished in {solve_time:.2f} seconds")
+                
+                if solution_data is None:
+                    error_msg = "No feasible solution found."
+                    add_log_message(error_msg, "ERROR")
+                    st.error(error_msg)
+                    st.error("Possible reasons:")
+                    st.error("1. Not enough vehicles to serve all customers")
+                    st.error("2. Vehicle capacity is too small for some customer demands")
+                    st.error("3. The solver couldn't find a solution within the time limit")
+                    st.error("Try increasing the number of vehicles, vehicle capacity, or simplifying the problem.")
+                    st.stop()
+                
+                add_log_message("Solution found! Processing route information...")
                 route_info = get_route_info(solution_data, df)
                 
+                if not route_info or len(route_info) == 0:
+                    error_msg = "Failed to extract route information from solution."
+                    add_log_message(error_msg, "ERROR")
+                    st.error(error_msg)
+                    st.stop()
+                
+                add_log_message(f"Number of routes: {len(route_info)}")
+                for i, route in enumerate(route_info):
+                    add_log_message(f"Route {i+1}: {len(route['stops'])} stops, {route['total_distance']:.2f} km, {route['total_demand']} demand")
+                
+                add_log_message("Optimization completed successfully!", "INFO")
+                
                 st.subheader("Optimization Results")
+            
+            except Exception as e:
+                error_msg = f"An error occurred during optimization: {str(e)}"
+                add_log_message(error_msg, "ERROR")
+                add_log_message(traceback.format_exc(), "ERROR")
+                st.error(error_msg)
+                st.error("Please check the Solver Log for details.")
+                st.stop()
                 
                 st.markdown("### Route Details")
                 
