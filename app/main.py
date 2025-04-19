@@ -7,12 +7,18 @@ from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 import folium
-from streamlit_folium import folium_static
 import os
 import traceback
 import time
 import logging
 import sys
+
+try:
+    from streamlit_folium import folium_static
+    FOLIUM_AVAILABLE = True
+except ImportError:
+    FOLIUM_AVAILABLE = False
+    st.warning("streamlit-folium package not available. Folium maps will be disabled. Please use Plotly maps instead.")
 
 from utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
 from solver import solve_cvrp, get_route_info
@@ -284,8 +290,12 @@ if uploaded_file is not None or use_sample_data:
                 
                 with tab2:
                     st.markdown("### Route Visualization (Folium)")
-                    m = create_folium_map(df, solution_data['routes'])
-                    folium_static(m)
+                    if FOLIUM_AVAILABLE:
+                        m = create_folium_map(df, solution_data['routes'])
+                        folium_static(m)
+                    else:
+                        st.warning("Folium map visualization is not available. Please use the Plotly map in the next tab.")
+                        st.info("To enable Folium maps, make sure the 'streamlit-folium' package is installed.")
                 
                 with tab3:
                     st.markdown("### Route Visualization (Plotly)")
