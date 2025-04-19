@@ -181,6 +181,29 @@ if uploaded_file is not None or use_sample_data:
                 add_log_message("Optimization completed successfully!", "INFO")
                 
                 st.subheader("Optimization Results")
+                
+                try:
+                    total_distance = sum(route['total_distance'] for route in route_info)
+                    total_customers = sum(len(route['stops']) for route in route_info)
+                    total_demand = sum(route['total_demand'] for route in route_info)
+                    total_capacity = vehicle_count * vehicle_capacity
+                    capacity_utilization = (total_demand / total_capacity) * 100
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Total Distance (km)", f"{total_distance:.2f}")
+                    with col2:
+                        st.metric("Total Customers Served", total_customers)
+                    with col3:
+                        st.metric("Total Demand Delivered", total_demand)
+                    with col4:
+                        st.metric("Overall Capacity Utilization", f"{capacity_utilization:.2f}%")
+                    
+                    st.markdown("### Route Details")
+                except Exception as e:
+                    error_msg = f"An error occurred while calculating summary metrics: {str(e)}"
+                    add_log_message(error_msg, "ERROR")
+                    st.error(error_msg)
             
             except Exception as e:
                 error_msg = f"An error occurred during optimization: {str(e)}"
@@ -189,9 +212,8 @@ if uploaded_file is not None or use_sample_data:
                 st.error(error_msg)
                 st.error("Please check the Solver Log for details.")
                 st.stop()
-                
-                st.markdown("### Route Details")
-                
+            
+            try:
                 route_summary = []
                 for route in route_info:
                     route_summary.append({
@@ -204,29 +226,29 @@ if uploaded_file is not None or use_sample_data:
                 
                 route_df = pd.DataFrame(route_summary)
                 st.dataframe(route_df)
-                
+            except Exception as e:
+                error_msg = f"An error occurred while displaying route summary: {str(e)}"
+                add_log_message(error_msg, "ERROR")
+                st.error(error_msg)
+            
+            try:
                 st.markdown("### Route Paths")
                 for route in route_info:
                     st.markdown(f"**{route['route_text']}**")
-                
-                total_distance = sum(route['total_distance'] for route in route_info)
-                total_customers = sum(len(route['stops']) for route in route_info)
-                total_demand = sum(route['total_demand'] for route in route_info)
-                total_capacity = vehicle_count * vehicle_capacity
-                capacity_utilization = (total_demand / total_capacity) * 100
-                
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Total Distance (km)", f"{total_distance:.2f}")
-                with col2:
-                    st.metric("Total Customers Served", total_customers)
-                with col3:
-                    st.metric("Total Demand Delivered", total_demand)
-                with col4:
-                    st.metric("Overall Capacity Utilization", f"{capacity_utilization:.2f}%")
-                
+            except Exception as e:
+                error_msg = f"An error occurred while displaying route paths: {str(e)}"
+                add_log_message(error_msg, "ERROR")
+                st.error(error_msg)
+            
+            try:
                 tab1, tab2, tab3, tab4 = st.tabs(["KPIs & Visualizations", "Interactive Map (Folium)", "Interactive Map (Plotly)", "Export Results"])
-                
+            except Exception as e:
+                error_msg = f"An error occurred while creating tabs: {str(e)}"
+                add_log_message(error_msg, "ERROR")
+                st.error(error_msg)
+                st.stop()
+            
+            try:
                 with tab1:
                     st.markdown("### Key Performance Indicators (KPIs)")
                     
@@ -287,7 +309,12 @@ if uploaded_file is not None or use_sample_data:
                         hole=0.4
                     )
                     st.plotly_chart(demand_fig, use_container_width=True)
-                
+            except Exception as e:
+                error_msg = f"An error occurred while displaying KPIs and visualizations: {str(e)}"
+                add_log_message(error_msg, "ERROR")
+                st.error(error_msg)
+            
+            try:
                 with tab2:
                     st.markdown("### Route Visualization (Folium)")
                     if FOLIUM_AVAILABLE:
@@ -296,12 +323,22 @@ if uploaded_file is not None or use_sample_data:
                     else:
                         st.warning("Folium map visualization is not available. Please use the Plotly map in the next tab.")
                         st.info("To enable Folium maps, make sure the 'streamlit-folium' package is installed.")
-                
+            except Exception as e:
+                error_msg = f"An error occurred while displaying Folium map: {str(e)}"
+                add_log_message(error_msg, "ERROR")
+                st.error(error_msg)
+            
+            try:
                 with tab3:
                     st.markdown("### Route Visualization (Plotly)")
                     fig = create_plotly_map(df, solution_data['routes'])
                     st.plotly_chart(fig, use_container_width=True)
-                
+            except Exception as e:
+                error_msg = f"An error occurred while displaying Plotly map: {str(e)}"
+                add_log_message(error_msg, "ERROR")
+                st.error(error_msg)
+            
+            try:
                 with tab4:
                     st.markdown("### Export Results")
                     
@@ -326,7 +363,7 @@ if uploaded_file is not None or use_sample_data:
                     
                     st.markdown(
                         get_download_link(
-                            route_df, 
+                            kpi_df, 
                             f"vrp_summary_{timestamp}.xlsx", 
                             "Download Route Summary"
                         ), 
@@ -341,6 +378,10 @@ if uploaded_file is not None or use_sample_data:
                         ), 
                         unsafe_allow_html=True
                     )
+            except Exception as e:
+                error_msg = f"An error occurred while preparing export results: {str(e)}"
+                add_log_message(error_msg, "ERROR")
+                st.error(error_msg)
 else:
     st.info("Please upload a CSV file with customer data or use the sample data option.")
     
