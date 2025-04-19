@@ -104,19 +104,96 @@ if uploaded_file is not None or use_sample_data:
                 for route in route_info:
                     st.markdown(f"**{route['route_text']}**")
                 
-                tab1, tab2, tab3 = st.tabs(["Interactive Map (Folium)", "Interactive Map (Plotly)", "Export Results"])
+                total_distance = sum(route['total_distance'] for route in route_info)
+                total_customers = sum(len(route['stops']) for route in route_info)
+                total_demand = sum(route['total_demand'] for route in route_info)
+                total_capacity = vehicle_count * vehicle_capacity
+                capacity_utilization = (total_demand / total_capacity) * 100
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Distance (km)", f"{total_distance:.2f}")
+                with col2:
+                    st.metric("Total Customers Served", total_customers)
+                with col3:
+                    st.metric("Total Demand Delivered", total_demand)
+                with col4:
+                    st.metric("Overall Capacity Utilization", f"{capacity_utilization:.2f}%")
+                
+                tab1, tab2, tab3, tab4 = st.tabs(["KPIs & Visualizations", "Interactive Map (Folium)", "Interactive Map (Plotly)", "Export Results"])
                 
                 with tab1:
+                    st.markdown("### Key Performance Indicators (KPIs)")
+                    
+                    kpi_df = pd.DataFrame([
+                        {
+                            'Vehicle': f"Vehicle {route['vehicle_id']}",
+                            'Customers Visited': len(route['stops']),
+                            'Distance (km)': round(route['total_distance'], 2),
+                            'Demand Delivered': route['total_demand'],
+                            'Capacity': vehicle_capacity,
+                            'Capacity Utilization (%)': round(route['total_demand'] / vehicle_capacity * 100, 2)
+                        } for route in route_info
+                    ])
+                    
+                    total_row = pd.DataFrame([{
+                        'Vehicle': 'TOTAL',
+                        'Customers Visited': kpi_df['Customers Visited'].sum(),
+                        'Distance (km)': kpi_df['Distance (km)'].sum(),
+                        'Demand Delivered': kpi_df['Demand Delivered'].sum(),
+                        'Capacity': kpi_df['Capacity'].sum(),
+                        'Capacity Utilization (%)': round(kpi_df['Demand Delivered'].sum() / kpi_df['Capacity'].sum() * 100, 2)
+                    }])
+                    
+                    kpi_df = pd.concat([kpi_df, total_row], ignore_index=True)
+                    st.dataframe(kpi_df, use_container_width=True)
+                    
+                    st.markdown("### Visualizations")
+                    
+                    viz_col1, viz_col2 = st.columns(2)
+                    
+                    with viz_col1:
+                        distance_fig = px.bar(
+                            kpi_df[:-1],  # Exclude total row
+                            x='Vehicle',
+                            y='Distance (km)',
+                            title='Distance Traveled per Vehicle',
+                            color='Distance (km)',
+                            color_continuous_scale='Viridis'
+                        )
+                        st.plotly_chart(distance_fig, use_container_width=True)
+                    
+                    with viz_col2:
+                        utilization_fig = px.bar(
+                            kpi_df[:-1],  # Exclude total row
+                            x='Vehicle',
+                            y='Capacity Utilization (%)',
+                            title='Vehicle Capacity Utilization',
+                            color='Capacity Utilization (%)',
+                            color_continuous_scale='RdYlGn'
+                        )
+                        st.plotly_chart(utilization_fig, use_container_width=True)
+                    
+                    demand_fig = px.pie(
+                        kpi_df[:-1],  # Exclude total row
+                        values='Demand Delivered',
+                        names='Vehicle',
+                        title='Demand Distribution Across Vehicles',
+                        hole=0.4
+                    )
+                    st.plotly_chart(demand_fig, use_container_width=True)
+                
+                with tab2:
                     st.markdown("### Route Visualization (Folium)")
                     m = create_folium_map(df, solution_data['routes'])
                     folium_static(m)
                 
-                with tab2:
+                with tab3:
                     st.markdown("### Route Visualization (Plotly)")
                     fig = create_plotly_map(df, solution_data['routes'])
                     st.plotly_chart(fig, use_container_width=True)
                 
-                with tab3:
+                with tab4:
                     st.markdown("### Export Results")
                     
                     detailed_results = []
