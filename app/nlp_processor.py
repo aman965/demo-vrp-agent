@@ -8,6 +8,7 @@ import math
 import numpy as np
 from io import StringIO
 import re
+import traceback
 
 try:
     api_key = st.secrets["OPENAI_API_KEY"]
@@ -66,7 +67,7 @@ def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
         
         response_data = query_gpt_with_context(query, context)
         
-        return process_gpt_response(response_data, kpi_df, detailed_df, context['route_info'])
+        return process_gpt_response(response_data, kpi_df, detailed_df, context['route_info'], context['vehicle_capacity'])
         
     except Exception as e:
         return {
@@ -91,6 +92,10 @@ def prepare_context(route_info, kpi_df, detailed_df, vehicle_capacity):
     kpi_df_str = kpi_df.to_string() if not kpi_df.empty else "No KPI data available"
     detailed_df_str = detailed_df.to_string() if not detailed_df.empty else "No detailed route data available"
     
+    st.write(f"Route info type: {type(route_info)}")
+    if isinstance(route_info, list) and len(route_info) > 0:
+        st.write(f"First route keys: {route_info[0].keys()}")
+    
     route_info_str = "Route Information:\n"
     for route in route_info:
         vehicle_id = route['vehicle_id']
@@ -98,21 +103,12 @@ def prepare_context(route_info, kpi_df, detailed_df, vehicle_capacity):
         stops_str = "Depot → " + " → ".join(stops) + " → Depot"
         route_info_str += f"Vehicle {vehicle_id}: {stops_str}\n"
     
-    route_info_dict = {}
-    for route in route_info:
-        vehicle_id = route['vehicle_id']
-        route_info_dict[vehicle_id] = {
-            'stops': route['stops'],
-            'total_distance': route['total_distance'],
-            'total_demand': route['total_demand'],
-            'route_text': route['route_text']
-        }
     
     context = {
         "problem_description": "Capacitated Vehicle Routing Problem (CVRP) using Google OR-Tools",
         "vehicle_capacity": vehicle_capacity,
         "num_vehicles": len(route_info),
-        "route_info": route_info_dict,
+        "route_info": route_info,  # Pass the original list
         "route_info_str": route_info_str,
         "kpi_df_str": kpi_df_str,
         "detailed_df_str": detailed_df_str,
@@ -160,7 +156,7 @@ def query_gpt_with_context(query, context):
         provide Python code that would extract the information from the available data structures.
         
         Available data structures:
-        - route_info: Dictionary with vehicle_id as keys and route details as values. Each route has 'stops', 'total_distance', 'total_demand', and 'route_text'.
+        - route_info: List of dictionaries, each representing a vehicle route. Each dictionary has keys: 'vehicle_id', 'stops', 'total_distance', 'total_demand', and 'route_text'.
         - kpi_df: DataFrame with KPI information (columns: {', '.join(context['kpi_columns'])})
         - detailed_df: DataFrame with detailed route information (columns: {', '.join(context['detailed_columns'])})
         
@@ -169,49 +165,27 @@ def query_gpt_with_context(query, context):
         2. If needed, include a "CODE" section with Python code that extracts the requested information
         3. If appropriate, include a "VISUALIZATION" section with instructions for creating a visualization
         
-        IMPORTANT: Do not use variable names from these examples in your response. Create your own variable names.
+        IMPORTANT: When writing code, use descriptive variable names and make sure to define all variables before using them.
         
-        Example 1: If asked "What's the total demand handled by Vehicle 2?", your response might be:
-        ```
-        Vehicle 2 handled a total demand of 45 units.
+        Example query types you should be able to handle:
+        1. "What's the total demand handled by Vehicle 2?"
+        2. "How far did Vehicle 4 travel from its second last served customer to the Depot?"
+        3. "Which vehicle traveled the most distance?"
+        4. "What is the capacity utilization of Vehicle 3?"
+        5. "Show a bar chart of demand per vehicle"
         
-        CODE:
+        For distance calculations between geographical coordinates, you can use the haversine function:
         ```python
-        total_demand_v2 = kpi_df.loc[kpi_df['Vehicle'] == 'Vehicle 2', 'Demand Delivered'].values[0]
-        print(f"Vehicle 2 demand from KPI: {total_demand_v2}")
-        
-        route_demand_v2 = route_info[2]['total_demand']
-        print(f"Vehicle 2 demand from route_info: {route_demand_v2}")
-        ```
-        ```
-        
-        Example 2: If asked about route details like "How far Vehicle 4 travelled from its second last served customer to Depot?",
-        your response might be:
-        ```
-        Vehicle 4 traveled 5.2 km from its second-to-last customer to the Depot.
-        
-        CODE:
-        ```python
-        vehicle_4_route = None
-        for route in route_info:
-            if route['vehicle_id'] == 4:
-                vehicle_4_route = route
-                break
-        
-        if vehicle_4_route and len(vehicle_4_route['stops']) >= 2:
-            second_last_stop = vehicle_4_route['stops'][-2]
-            
-            # Calculate distance using haversine function
-            second_last_lat = second_last_stop['latitude']
-            second_last_lon = second_last_stop['longitude']
-            depot_lat = 40.7128  # Depot latitude
-            depot_lon = -74.0060  # Depot longitude
-            
-            distance = haversine(second_last_lon, second_last_lat, depot_lon, depot_lat)
-            print(f"Distance from second-to-last stop to depot: {distance:.2f} km")
-        else:
-            print("Vehicle 4 has fewer than 2 stops or was not found")
-        ```
+        def haversine(lon1, lat1, lon2, lat2):
+            # Calculate the great circle distance between two points 
+            # on the earth (specified in decimal degrees)
+            lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
+            dlon = lon2 - lon1
+            dlat = lat2 - lat1
+            a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+            c = 2 * math.asin(math.sqrt(a))
+            r = 6371  # Radius of earth in kilometers
+            return c * r
         ```
         """
         
@@ -231,7 +205,7 @@ def query_gpt_with_context(query, context):
     except Exception as e:
         return f"Error querying GPT: {str(e)}"
 
-def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None):
+def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, vehicle_capacity=None):
     """
     Process GPT's response to extract visualization instructions if any
     
@@ -239,7 +213,8 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None):
         response_text: GPT's response text
         kpi_df: DataFrame with KPI information
         detailed_df: DataFrame with detailed route information
-        route_info: Dictionary with route information
+        route_info: List of dictionaries with route information
+        vehicle_capacity: The capacity of each vehicle
         
     Returns:
         dict: Contains response text, visualization (if any), and intent information
@@ -261,12 +236,14 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None):
                 'kpi_df': kpi_df,
                 'detailed_df': detailed_df,
                 'route_info': route_info,
+                'vehicle_capacity': vehicle_capacity,
                 'pd': pd,
                 'px': px,
                 'go': go,
                 'np': np,
                 'math': math,
-                'haversine': haversine
+                'haversine': haversine,
+                'StringIO': StringIO
             }
             
             exec(code_block, globals(), local_vars)
@@ -277,7 +254,10 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None):
                 result["intent"] = "visualization"
         
         except Exception as e:
-            result["response_text"] += f"\n\nNote: There was an error executing the code: {str(e)}"
+            error_msg = f"\n\nNote: There was an error executing the code: {str(e)}"
+            st.write(f"Error executing code: {str(e)}")
+            st.write(traceback.format_exc())
+            result["response_text"] += error_msg
     
     return result
 
