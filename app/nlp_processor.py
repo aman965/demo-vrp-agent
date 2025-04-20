@@ -13,27 +13,34 @@ import traceback
 try:
     api_key = st.secrets["OPENAI_API_KEY"]
     openai.api_key = api_key
+    
+    MODEL_NAME = st.secrets.get("OPENAI_MODEL", "gpt-3.5-turbo")
+    
     API_KEY_AVAILABLE = True
-    st.success("OpenAI API key found in st.secrets. NLP features are enabled.")
+    st.success(f"OpenAI API key found in st.secrets. Using model: {MODEL_NAME}. NLP features are enabled.")
 except (KeyError, TypeError):
     try:
         import os
         api_key = os.environ.get("streamlit_demo")
         if api_key:
             openai.api_key = api_key
+            MODEL_NAME = "gpt-3.5-turbo"  # Default model if not in secrets
             API_KEY_AVAILABLE = True
-            st.success("OpenAI API key found in environment variables. NLP features are enabled.")
+            st.success(f"OpenAI API key found in environment variables. Using model: {MODEL_NAME}. NLP features are enabled.")
         else:
             api_key = os.environ.get("OPENAI_API_KEY")
             if api_key:
                 openai.api_key = api_key
+                MODEL_NAME = "gpt-3.5-turbo"  # Default model if not in secrets
                 API_KEY_AVAILABLE = True
-                st.success("OpenAI API key found in OPENAI_API_KEY environment variable. NLP features are enabled.")
+                st.success(f"OpenAI API key found in OPENAI_API_KEY environment variable. Using model: {MODEL_NAME}. NLP features are enabled.")
             else:
                 API_KEY_AVAILABLE = False
+                MODEL_NAME = "gpt-3.5-turbo"  # Default model even if API key is not available
                 st.error("OpenAI API key not found. Please add OPENAI_API_KEY to your Streamlit secrets or environment variables.")
     except Exception as e:
         API_KEY_AVAILABLE = False
+        MODEL_NAME = "gpt-3.5-turbo"  # Default model even if API key is not available
         st.error(f"Error accessing OpenAI API key: {str(e)}. NLP features will not work.")
 
 def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
@@ -190,7 +197,7 @@ def query_gpt_with_context(query, context):
         """
         
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Using GPT-3.5 Turbo as fallback since GPT-4 is not available
+            model=MODEL_NAME,  # Using model specified in settings or default to gpt-3.5-turbo
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": query}
