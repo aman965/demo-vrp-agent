@@ -9,9 +9,21 @@ try:
     api_key = st.secrets["OPENAI_API_KEY"]
     openai.api_key = api_key
     API_KEY_AVAILABLE = True
+    st.success("OpenAI API key found in st.secrets. NLP features are enabled.")
 except (KeyError, TypeError):
-    API_KEY_AVAILABLE = False
-    st.warning("OpenAI API key not found in st.secrets. NLP features will not work.")
+    try:
+        import os
+        api_key = os.environ.get("streamlit_demo")
+        if api_key:
+            openai.api_key = api_key
+            API_KEY_AVAILABLE = True
+            st.success("OpenAI API key found in environment variables. NLP features are enabled.")
+        else:
+            API_KEY_AVAILABLE = False
+            st.warning("OpenAI API key not found in st.secrets or environment variables. NLP features will not work.")
+    except Exception:
+        API_KEY_AVAILABLE = False
+        st.warning("OpenAI API key not found in st.secrets. NLP features will not work.")
 
 def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
     """
