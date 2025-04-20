@@ -420,45 +420,63 @@ if uploaded_file is not None or use_sample_data:
                                     if intent != "error" and intent != "unknown":
                                         st.caption(f"*Interpreted as: {intent}*")
                     
-                    user_input = st.text_input("Type your message here:", key="chat_input")
+                    if "chat_input" not in st.session_state:
+                        st.session_state.chat_input = ""
                     
-                    if st.button("Send", key="send_button"):
-                        if user_input:
-                            add_chat_message("user", user_input)
+                    if "processing_chat" not in st.session_state:
+                        st.session_state.processing_chat = False
+                    
+                    def submit_message():
+                        if st.session_state.chat_input:
+                            user_message = st.session_state.chat_input
+                            st.session_state.chat_input = ""  # Clear input
+                            st.session_state.processing_chat = True  # Set processing flag
+                            st.session_state.current_query = user_message  # Store current query
+                    
+                    user_input = st.text_input(
+                        "Type your message here:", 
+                        key="chat_input",
+                        on_change=submit_message
+                    )
+                    
+                    if st.session_state.processing_chat and hasattr(st.session_state, 'current_query'):
+                        try:
+                            user_message = st.session_state.current_query
+                            add_chat_message("user", user_message)
+                            add_log_message(f"Processing chat query: '{user_message}'", "INFO")
                             
-                            try:
-                                add_log_message(f"Processing chat query: '{user_input}'", "INFO")
-                                
-                                result = process_query(
-                                    query=user_input,
-                                    route_info=route_info,
-                                    kpi_df=kpi_df,
-                                    detailed_df=detailed_df,
-                                    vehicle_capacity=vehicle_capacity
-                                )
-                                
-                                add_log_message(f"Query processed with intent: {result['intent']}", "INFO")
-                                
-                                add_chat_message(
-                                    "assistant", 
-                                    result["response_text"], 
-                                    {"intent": result["intent"]}
-                                )
-                                
-                                if result["visualization"]:
-                                    add_log_message("Generating visualization for query", "INFO")
-                                    viz_id = f"chat_viz_{uuid.uuid4()}"
-                                    with st.session_state.chat_viz_container:
-                                        st.markdown("### Generated Visualization")
-                                        st.plotly_chart(result["visualization"], use_container_width=True, key=viz_id)
+                            result = process_query(
+                                query=user_message,
+                                route_info=route_info,
+                                kpi_df=kpi_df,
+                                detailed_df=detailed_df,
+                                vehicle_capacity=vehicle_capacity
+                            )
                             
-                            except Exception as e:
-                                error_msg = f"An error occurred while processing your query: {str(e)}"
-                                add_log_message(error_msg, "ERROR")
-                                add_log_message(traceback.format_exc(), "ERROR")
-                                add_chat_message("assistant", f"I'm sorry, I encountered an error: {str(e)}")
+                            add_log_message(f"Query processed with intent: {result['intent']}", "INFO")
                             
-                            st.session_state.chat_input = ""
+                            add_chat_message(
+                                "assistant", 
+                                result["response_text"], 
+                                {"intent": result["intent"]}
+                            )
+                            
+                            if result["visualization"]:
+                                add_log_message("Generating visualization for query", "INFO")
+                                viz_id = f"chat_viz_{uuid.uuid4()}"
+                                with st.session_state.chat_viz_container:
+                                    st.markdown("### Generated Visualization")
+                                    st.plotly_chart(result["visualization"], use_container_width=True, key=viz_id)
+                        
+                        except Exception as e:
+                            error_msg = f"An error occurred while processing your query: {str(e)}"
+                            add_log_message(error_msg, "ERROR")
+                            add_log_message(traceback.format_exc(), "ERROR")
+                            add_chat_message("assistant", f"I'm sorry, I encountered an error: {str(e)}")
+                        
+                        st.session_state.processing_chat = False
+                        if hasattr(st.session_state, 'current_query'):
+                            delattr(st.session_state, 'current_query')
             except Exception as e:
                 error_msg = f"An error occurred in the chat interface: {str(e)}"
                 add_log_message(error_msg, "ERROR")
