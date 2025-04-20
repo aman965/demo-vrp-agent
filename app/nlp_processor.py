@@ -1,4 +1,3 @@
-import os
 import json
 import openai
 import pandas as pd
@@ -6,11 +5,13 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-api_key = os.environ.get("streamlit_demo")
-if api_key:
+try:
+    api_key = st.secrets["OPENAI_API_KEY"]
     openai.api_key = api_key
-else:
-    st.warning("OpenAI API key not found. NLP features will not work.")
+    API_KEY_AVAILABLE = True
+except (KeyError, TypeError):
+    API_KEY_AVAILABLE = False
+    st.warning("OpenAI API key not found in st.secrets. NLP features will not work.")
 
 def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
     """
@@ -26,15 +27,22 @@ def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
     Returns:
         dict: Contains response text, visualization (if any), and intent information
     """
-    if not api_key:
+    if not API_KEY_AVAILABLE:
         return {
-            "response_text": "Sorry, I can't process your query because the OpenAI API key is not configured.",
+            "response_text": "Sorry, I can't process your query because the OpenAI API key is not configured in Streamlit secrets. Please add the OPENAI_API_KEY to your secrets.",
             "visualization": None,
             "intent": "error"
         }
     
-    intent_data = interpret_query(query, kpi_df.columns.tolist())
-    
+    try:
+        intent_data = interpret_query(query, kpi_df.columns.tolist())
+    except Exception as e:
+        return {
+            "response_text": f"I encountered an error while processing your query: {str(e)}",
+            "visualization": None,
+            "intent": "error"
+        }
+        
     if intent_data["intent"] == "error":
         return {
             "response_text": "I'm sorry, I couldn't understand your query. Please try again with a different question.",
@@ -88,14 +96,16 @@ def interpret_query(query, available_metrics):
         Return a JSON object with the intent and parameters.
         """
         
-        response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
+        client = openai.OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model="gpt-4",  # Using GPT-4 as requested by the user
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": query}
             ],
             temperature=0.1,
-            max_tokens=150
+            max_tokens=150,
+            response_format={"type": "json_object"}  # Request JSON response format
         )
         
         content = response.choices[0].message.content
@@ -348,7 +358,7 @@ def handle_summary_request(kpi_df, route_info, vehicle_capacity):
     active_vehicles = sum(1 for route in route_info if len(route['stops']) > 0)
     avg_stops_per_vehicle = total_row['Customers Visited'] / active_vehicles if active_vehicles > 0 else 0
     
-    summary_text = f"""
+    summary_text = f"""## Solution Summary
     
     - **Total Distance**: {total_row['Distance (km)']} km
     - **Total Customers Served**: {int(total_row['Customers Visited'])}
