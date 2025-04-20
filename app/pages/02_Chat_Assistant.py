@@ -139,10 +139,7 @@ query_input = st.text_input("Type your message here:", key="query_input")
 if st.button("Send", on_click=process_user_query):
     pass
 
-if st.button("Return to Optimization Page"):
-    import webbrowser
-    st.markdown("[Return to main page](/)") 
-    st.markdown('<meta http-equiv="refresh" content="0;url=/" />', unsafe_allow_html=True)
+st.markdown("[Return to Optimization Page](/)", unsafe_allow_html=False)
 
 with st.expander("Solver Log", expanded=False):
     log_text = "\n".join(st.session_state.log_messages) if 'log_messages' in st.session_state else ""
