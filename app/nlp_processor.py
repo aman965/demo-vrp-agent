@@ -292,41 +292,98 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, ve
                 result["intent"] = "visualization"
             
             elif plt_available and 'plt' in local_vars and plt.get_fignums():
-                from plotly.subplots import make_subplots
-                
-                mpl_fig = plt.gcf()
-                plotly_fig = go.Figure()
-                
-                for ax in mpl_fig.axes:
-                    for line in ax.lines:
-                        x_data = line.get_xdata()
-                        y_data = line.get_ydata()
-                        plotly_fig.add_trace(go.Scatter(x=x_data, y=y_data, mode='lines'))
+                try:
+                    vehicle_distances = None
+                    vehicle_ids = None
                     
-                    for collection in ax.collections:
-                        if hasattr(collection, 'get_offsets'):
-                            xy = collection.get_offsets()
-                            if len(xy) > 0:
-                                x = xy[:, 0]
-                                y = xy[:, 1]
-                                plotly_fig.add_trace(go.Scatter(x=x, y=y, mode='markers'))
+                    for var_name in ['vehicle_distances', 'distances', 'distance_values']:
+                        if var_name in local_vars and isinstance(local_vars[var_name], (list, np.ndarray, pd.Series)):
+                            vehicle_distances = local_vars[var_name]
+                            break
                     
-                    for patch in ax.patches:
-                        if hasattr(patch, 'get_x') and hasattr(patch, 'get_width'):
-                            x = patch.get_x() + patch.get_width() / 2
-                            y = patch.get_height()
-                            plotly_fig.add_trace(go.Bar(x=[x], y=[y]))
+                    for var_name in ['vehicle_ids', 'vehicles', 'ids']:
+                        if var_name in local_vars and isinstance(local_vars[var_name], (list, np.ndarray, pd.Series)):
+                            vehicle_ids = local_vars[var_name]
+                            break
+                    
+                    if vehicle_distances is not None and vehicle_ids is not None and len(vehicle_distances) == len(vehicle_ids):
+                        fig = px.bar(
+                            x=vehicle_ids, 
+                            y=vehicle_distances,
+                            labels={'x': 'Vehicle', 'y': 'Distance (km)'},
+                            title='Distance Traveled by Each Vehicle',
+                            color_discrete_sequence=['skyblue']
+                        )
+                        fig.update_layout(
+                            xaxis_title='Vehicle',
+                            yaxis_title='Distance Traveled (km)'
+                        )
+                        result["visualization"] = fig
+                        result["intent"] = "visualization"
+                    elif 'kpi_df' in local_vars and not local_vars['kpi_df'].empty and 'Distance (km)' in local_vars['kpi_df'].columns:
+                        fig = px.bar(
+                            local_vars['kpi_df'], 
+                            x='Vehicle', 
+                            y='Distance (km)',
+                            title='Distance Traveled by Each Vehicle',
+                            color_discrete_sequence=['skyblue']
+                        )
+                        result["visualization"] = fig
+                        result["intent"] = "visualization"
+                    else:
+                        fig = go.Figure()
+                        
+                        mpl_fig = plt.gcf()
+                        
+                        for ax in mpl_fig.axes:
+                            if hasattr(ax, 'patches') and ax.patches:
+                                x_values = []
+                                y_values = []
+                                for patch in ax.patches:
+                                    if hasattr(patch, 'get_x') and hasattr(patch, 'get_width'):
+                                        x = patch.get_x() + patch.get_width() / 2
+                                        y = patch.get_height()
+                                        x_values.append(x)
+                                        y_values.append(y)
+                                
+                                if x_values and y_values:
+                                    fig.add_trace(go.Bar(x=x_values, y=y_values))
+                            
+                            if hasattr(ax, 'lines'):
+                                for line in ax.lines:
+                                    x_data = line.get_xdata()
+                                    y_data = line.get_ydata()
+                                    if len(x_data) > 0 and len(y_data) > 0:
+                                        fig.add_trace(go.Scatter(x=x_data, y=y_data, mode='lines'))
+                        
+                        if hasattr(ax, 'get_title') and ax.get_title():
+                            fig.update_layout(title=ax.get_title())
+                        if hasattr(ax, 'get_xlabel') and ax.get_xlabel():
+                            fig.update_xaxes(title=ax.get_xlabel())
+                        if hasattr(ax, 'get_ylabel') and ax.get_ylabel():
+                            fig.update_yaxes(title=ax.get_ylabel())
+                        
+                        if len(fig.data) > 0:
+                            result["visualization"] = fig
+                            result["intent"] = "visualization"
+                        else:
+                            if not kpi_df.empty and 'Vehicle' in kpi_df.columns and 'Distance (km)' in kpi_df.columns:
+                                fig = px.bar(
+                                    kpi_df, 
+                                    x='Vehicle', 
+                                    y='Distance (km)',
+                                    title='Distance Traveled by Each Vehicle',
+                                    color_discrete_sequence=['skyblue']
+                                )
+                                result["visualization"] = fig
+                                result["intent"] = "visualization"
+                            else:
+                                result["response_text"] += "\n\nNote: I couldn't create a visualization from the matplotlib figure. Please try using Plotly directly in your query."
+                except Exception as viz_error:
+                    result["response_text"] += f"\n\nNote: Error creating visualization: {str(viz_error)}"
                 
-                if ax.get_title():
-                    plotly_fig.update_layout(title=ax.get_title())
-                if ax.get_xlabel():
-                    plotly_fig.update_xaxes(title=ax.get_xlabel())
-                if ax.get_ylabel():
-                    plotly_fig.update_yaxes(title=ax.get_ylabel())
-                
-                result["visualization"] = plotly_fig
-                result["intent"] = "visualization"
-                plt.close()  # Close matplotlib figure to free memory
+                # Always close matplotlib figure to free memory
+                plt.close()
         
         except Exception as e:
             error_msg = f"\n\nNote: There was an error executing the code: {str(e)}\n{traceback.format_exc()}"
