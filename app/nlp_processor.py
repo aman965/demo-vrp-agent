@@ -20,7 +20,8 @@ try:
     api_key = st.secrets["OPENAI_API_KEY"]
     if api_key and len(api_key) > 0:
         MODEL_NAME = st.secrets.get("OPENAI_MODEL", "gpt-3.5-turbo")
-        client = OpenAI(api_key=api_key)
+        openai.api_key = api_key
+        client = OpenAI(api_key=api_key, base_url="https://api.openai.com/v1")
         API_KEY_AVAILABLE = True
         st.success(f"OpenAI API key found in Streamlit secrets. Using model: {MODEL_NAME}")
     else:
@@ -32,19 +33,22 @@ if not API_KEY_AVAILABLE:
     try:
         api_key = os.environ.get("vrp_demo_key")
         if api_key and len(api_key) > 0:
-            client = OpenAI(api_key=api_key)
+            openai.api_key = api_key
+            client = OpenAI(api_key=api_key, base_url="https://api.openai.com/v1")
             API_KEY_AVAILABLE = True
             st.success(f"OpenAI API key found in environment variable 'vrp_demo_key'. Using model: {MODEL_NAME}")
         else:
             api_key = os.environ.get("streamlit_demo")
             if api_key and len(api_key) > 0:
-                client = OpenAI(api_key=api_key)
+                openai.api_key = api_key
+                client = OpenAI(api_key=api_key, base_url="https://api.openai.com/v1")
                 API_KEY_AVAILABLE = True
                 st.success(f"OpenAI API key found in environment variable 'streamlit_demo'. Using model: {MODEL_NAME}")
             else:
                 api_key = os.environ.get("OPENAI_API_KEY")
                 if api_key and len(api_key) > 0:
-                    client = OpenAI(api_key=api_key)
+                    openai.api_key = api_key
+                    client = OpenAI(api_key=api_key, base_url="https://api.openai.com/v1")
                     API_KEY_AVAILABLE = True
                     st.success(f"OpenAI API key found in environment variable 'OPENAI_API_KEY'. Using model: {MODEL_NAME}")
                 else:
@@ -199,15 +203,30 @@ def query_gpt_with_context(query, context):
         ```
         """
         
-        response = client.chat.completions.create(
-            model=MODEL_NAME,  # Using model specified in settings or default to gpt-3.5-turbo
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": query}
-            ],
-            temperature=0.1,
-            max_tokens=1000
-        )
+        try:
+            response = client.chat.completions.create(
+                model=MODEL_NAME,  # Using model specified in settings or default to gpt-3.5-turbo
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": query}
+                ],
+                temperature=0.1,
+                max_tokens=1000
+            )
+        except Exception as e:
+            if "proxies" in str(e):
+                response = openai.ChatCompletion.create(
+                    model=MODEL_NAME,
+                    messages=[
+                        {"role": "system", "content": system_message},
+                        {"role": "user", "content": query}
+                    ],
+                    temperature=0.1,
+                    max_tokens=1000
+                )
+                return response.choices[0].message.content
+            else:
+                raise e
         
         return response.choices[0].message.content
     
