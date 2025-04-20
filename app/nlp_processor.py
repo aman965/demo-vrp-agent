@@ -169,22 +169,50 @@ def query_gpt_with_context(query, context):
         2. If needed, include a "CODE" section with Python code that extracts the requested information
         3. If appropriate, include a "VISUALIZATION" section with instructions for creating a visualization
         
-        For example, if asked "What's the total demand handled by Vehicle 2?", your response might be:
+        IMPORTANT: Do not use variable names from these examples in your response. Create your own variable names.
+        
+        Example 1: If asked "What's the total demand handled by Vehicle 2?", your response might be:
         ```
         Vehicle 2 handled a total demand of 45 units.
         
         CODE:
         ```python
-        demand_from_kpi = kpi_df.loc[kpi_df['Vehicle'] == 'Vehicle 2', 'Demand Delivered'].values[0]
-        print(f"Vehicle 2 demand from KPI: {demand_from_kpi}")
+        total_demand_v2 = kpi_df.loc[kpi_df['Vehicle'] == 'Vehicle 2', 'Demand Delivered'].values[0]
+        print(f"Vehicle 2 demand from KPI: {total_demand_v2}")
         
-        demand_from_route = route_info[2]['total_demand']
-        print(f"Vehicle 2 demand from route_info: {demand_from_route}")
+        route_demand_v2 = route_info[2]['total_demand']
+        print(f"Vehicle 2 demand from route_info: {route_demand_v2}")
         ```
         ```
         
-        If asked about route details like "How far Vehicle 4 travelled from its second last served customer to Depot?",
-        your response should include code to calculate this specific distance using the detailed_df or by accessing the route_info dictionary.
+        Example 2: If asked about route details like "How far Vehicle 4 travelled from its second last served customer to Depot?",
+        your response might be:
+        ```
+        Vehicle 4 traveled 5.2 km from its second-to-last customer to the Depot.
+        
+        CODE:
+        ```python
+        vehicle_4_route = None
+        for route in route_info:
+            if route['vehicle_id'] == 4:
+                vehicle_4_route = route
+                break
+        
+        if vehicle_4_route and len(vehicle_4_route['stops']) >= 2:
+            second_last_stop = vehicle_4_route['stops'][-2]
+            
+            # Calculate distance using haversine function
+            second_last_lat = second_last_stop['latitude']
+            second_last_lon = second_last_stop['longitude']
+            depot_lat = 40.7128  # Depot latitude
+            depot_lon = -74.0060  # Depot longitude
+            
+            distance = haversine(second_last_lon, second_last_lat, depot_lon, depot_lat)
+            print(f"Distance from second-to-last stop to depot: {distance:.2f} km")
+        else:
+            print("Vehicle 4 has fewer than 2 stops or was not found")
+        ```
+        ```
         """
         
         client = openai.OpenAI(api_key=api_key)
@@ -227,6 +255,8 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None):
         code_block = code_match.group(1)
         
         try:
+            st.write(f"Executing code block: {code_block[:100]}...")
+            
             local_vars = {
                 'kpi_df': kpi_df,
                 'detailed_df': detailed_df,
@@ -235,7 +265,8 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None):
                 'px': px,
                 'go': go,
                 'np': np,
-                'math': math
+                'math': math,
+                'haversine': haversine
             }
             
             exec(code_block, globals(), local_vars)
