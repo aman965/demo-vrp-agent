@@ -89,6 +89,9 @@ if uploaded_file is not None or use_sample_data:
     
     if 'log_messages' not in st.session_state:
         st.session_state.log_messages = []
+        
+    if 'chat_messages' not in st.session_state:
+        st.session_state.chat_messages = []
     
     log_container = st.container()
     
@@ -241,7 +244,7 @@ if uploaded_file is not None or use_sample_data:
                 st.error(error_msg)
             
             try:
-                tab1, tab2, tab3, tab4 = st.tabs(["KPIs & Visualizations", "Interactive Map (Folium)", "Interactive Map (Plotly)", "Export Results"])
+                tab1, tab2, tab3, tab4, tab5 = st.tabs(["KPIs & Visualizations", "Interactive Map (Folium)", "Interactive Map (Plotly)", "Export Results", "Chat"])
             except Exception as e:
                 error_msg = f"An error occurred while creating tabs: {str(e)}"
                 add_log_message(error_msg, "ERROR")
@@ -380,6 +383,41 @@ if uploaded_file is not None or use_sample_data:
                     )
             except Exception as e:
                 error_msg = f"An error occurred while preparing export results: {str(e)}"
+                add_log_message(error_msg, "ERROR")
+                st.error(error_msg)
+                
+            try:
+                with tab5:
+                    st.markdown("### Chat with VRP Assistant")
+                    st.markdown("Ask questions about your routes or request scenario analysis.")
+                    
+                    def add_chat_message(role, content):
+                        timestamp = datetime.now().strftime("%H:%M:%S")
+                        st.session_state.chat_messages.append({"role": role, "content": content, "timestamp": timestamp})
+                    
+                    chat_container = st.container()
+                    with chat_container:
+                        for message in st.session_state.chat_messages:
+                            if message["role"] == "user":
+                                st.markdown(f"**You ({message['timestamp']}):** {message['content']}")
+                            else:
+                                st.markdown(f"**Assistant ({message['timestamp']}):** {message['content']}")
+                    
+                    user_input = st.text_input("Type your message here:", key="chat_input")
+                    
+                    if st.button("Send", key="send_button"):
+                        if user_input:
+                            add_chat_message("user", user_input)
+                            
+                            response = f"You asked: '{user_input}'. This is a placeholder response. NLP-based scenario analysis will be implemented in future updates."
+                            
+                            add_chat_message("assistant", response)
+                            
+                            st.session_state.chat_input = ""
+                            
+                            st.experimental_rerun()
+            except Exception as e:
+                error_msg = f"An error occurred in the chat interface: {str(e)}"
                 add_log_message(error_msg, "ERROR")
                 st.error(error_msg)
 else:
