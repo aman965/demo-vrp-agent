@@ -189,8 +189,7 @@ def query_gpt_with_context(query, context):
         ```
         """
         
-        client = openai.OpenAI(api_key=api_key)
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4",  # Using GPT-4 as requested by the user
             messages=[
                 {"role": "system", "content": system_message},
