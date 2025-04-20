@@ -1,4 +1,12 @@
 import streamlit as st
+
+st.set_page_config(
+    page_title="Vehicle Routing Problem Solver",
+    page_icon="🚚",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 import pandas as pd
 import numpy as np
 import io
@@ -31,13 +39,6 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger("CVRP-Solver")
-
-st.set_page_config(
-    page_title="Vehicle Routing Problem Solver",
-    page_icon="🚚",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 st.title("Capacitated Vehicle Routing Problem (CVRP) Solver")
 st.markdown("""
