@@ -292,9 +292,39 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, ve
                 result["intent"] = "visualization"
             
             elif plt_available and 'plt' in local_vars and plt.get_fignums():
-                import plotly.io as pio
-                fig = pio.to_plotly(plt.gcf())
-                result["visualization"] = fig
+                from plotly.subplots import make_subplots
+                
+                mpl_fig = plt.gcf()
+                plotly_fig = go.Figure()
+                
+                for ax in mpl_fig.axes:
+                    for line in ax.lines:
+                        x_data = line.get_xdata()
+                        y_data = line.get_ydata()
+                        plotly_fig.add_trace(go.Scatter(x=x_data, y=y_data, mode='lines'))
+                    
+                    for collection in ax.collections:
+                        if hasattr(collection, 'get_offsets'):
+                            xy = collection.get_offsets()
+                            if len(xy) > 0:
+                                x = xy[:, 0]
+                                y = xy[:, 1]
+                                plotly_fig.add_trace(go.Scatter(x=x, y=y, mode='markers'))
+                    
+                    for patch in ax.patches:
+                        if hasattr(patch, 'get_x') and hasattr(patch, 'get_width'):
+                            x = patch.get_x() + patch.get_width() / 2
+                            y = patch.get_height()
+                            plotly_fig.add_trace(go.Bar(x=[x], y=[y]))
+                
+                if ax.get_title():
+                    plotly_fig.update_layout(title=ax.get_title())
+                if ax.get_xlabel():
+                    plotly_fig.update_xaxes(title=ax.get_xlabel())
+                if ax.get_ylabel():
+                    plotly_fig.update_yaxes(title=ax.get_ylabel())
+                
+                result["visualization"] = plotly_fig
                 result["intent"] = "visualization"
                 plt.close()  # Close matplotlib figure to free memory
         
