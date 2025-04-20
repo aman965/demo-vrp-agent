@@ -571,19 +571,60 @@ if uploaded_file is not None or use_sample_data:
                             unsafe_allow_html=True
                         )
                 
-                if 'process_chat' in st.session_state and st.session_state.process_chat:
-                    st.session_state.active_tab = 4
-                    st.session_state.process_chat = False
+                if 'chat_messages' not in st.session_state:
+                    st.session_state.chat_messages = []
+                
+                if 'chat_viz' not in st.session_state:
+                    st.session_state.chat_viz = None
+                
+                if 'chat_input' not in st.session_state:
+                    st.session_state.chat_input = ""
+                
+                st.session_state.active_tab = 4
+                
+                def on_chat_input_change():
+                    st.session_state.chat_input_value = st.session_state.chat_input_widget
+                
+                def on_send_button_click():
+                    if st.session_state.chat_input_value:
+                        query = st.session_state.chat_input_value
+                        
+                        add_chat_message("user", query)
+                        add_log_message(f"Processing chat query: '{query}'", "INFO")
+                        
+                        try:
+                            result = process_query(
+                                query=query,
+                                route_info=route_info,
+                                kpi_df=kpi_df,
+                                detailed_df=detailed_df,
+                                vehicle_capacity=vehicle_capacity
+                            )
+                            
+                            add_log_message(f"Query processed with intent: {result['intent']}", "INFO")
+                            
+                            add_chat_message(
+                                "assistant", 
+                                result["response_text"], 
+                                {"intent": result["intent"]}
+                            )
+                            
+                            if result["visualization"]:
+                                add_log_message("Generating visualization for query", "INFO")
+                                st.session_state.chat_viz = result["visualization"]
+                        
+                        except Exception as e:
+                            error_msg = f"An error occurred while processing your query: {str(e)}"
+                            add_log_message(error_msg, "ERROR")
+                            add_log_message(traceback.format_exc(), "ERROR")
+                            add_chat_message("assistant", f"I'm sorry, I encountered an error: {str(e)}")
+                        
+                        st.session_state.chat_input_value = ""
+                        st.session_state.chat_input_widget = ""
                 
                 with tabs[4]:
                     st.markdown("### Chat with VRP Assistant")
                     st.markdown("Ask questions about your routes or request scenario analysis.")
-                    
-                    if 'chat_messages' not in st.session_state:
-                        st.session_state.chat_messages = []
-                    
-                    if 'chat_viz' not in st.session_state:
-                        st.session_state.chat_viz = None
                     
                     chat_container = st.container()
                     with chat_container:
@@ -601,45 +642,15 @@ if uploaded_file is not None or use_sample_data:
                         st.markdown("### Generated Visualization")
                         st.plotly_chart(st.session_state.chat_viz, use_container_width=True, key="chat_visualization")
                     
-                    def process_chat_query():
-                        if st.session_state.chat_input:
-                            query = st.session_state.chat_input
-                            
-                            add_chat_message("user", query)
-                            add_log_message(f"Processing chat query: '{query}'", "INFO")
-                            
-                            try:
-                                result = process_query(
-                                    query=query,
-                                    route_info=route_info,
-                                    kpi_df=kpi_df,
-                                    detailed_df=detailed_df,
-                                    vehicle_capacity=vehicle_capacity
-                                )
-                                
-                                add_log_message(f"Query processed with intent: {result['intent']}", "INFO")
-                                
-                                add_chat_message(
-                                    "assistant", 
-                                    result["response_text"], 
-                                    {"intent": result["intent"]}
-                                )
-                                
-                                if result["visualization"]:
-                                    add_log_message("Generating visualization for query", "INFO")
-                                    st.session_state.chat_viz = result["visualization"]
-                            
-                            except Exception as e:
-                                error_msg = f"An error occurred while processing your query: {str(e)}"
-                                add_log_message(error_msg, "ERROR")
-                                add_log_message(traceback.format_exc(), "ERROR")
-                                add_chat_message("assistant", f"I'm sorry, I encountered an error: {str(e)}")
-                            
-                            st.session_state.process_chat = True
-                    
-                    with st.form(key="chat_form", clear_on_submit=True):
-                        st.text_input("Type your message here:", key="chat_input")
-                        submit_button = st.form_submit_button("Send", on_click=process_chat_query)
+                    col1, col2 = st.columns([5, 1])
+                    with col1:
+                        st.text_input(
+                            "Type your message here:", 
+                            key="chat_input_widget", 
+                            on_change=on_chat_input_change
+                        )
+                    with col2:
+                        st.button("Send", key="send_button", on_click=on_send_button_click)
                 
             except Exception as e:
                 error_msg = f"An error occurred in the chat interface: {str(e)}"
