@@ -1,12 +1,4 @@
 import streamlit as st
-
-st.set_page_config(
-    page_title="Vehicle Routing Problem Solver",
-    page_icon="🚚",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
 import pandas as pd
 import numpy as np
 import io
@@ -21,6 +13,14 @@ import time
 import logging
 import sys
 import uuid
+import json
+
+st.set_page_config(
+    page_title="Vehicle Routing Problem Solver",
+    page_icon="🚚",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 try:
     from streamlit_folium import folium_static
@@ -390,63 +390,38 @@ if uploaded_file is not None or use_sample_data:
                 st.error(error_msg)
                 
             try:
-                with tab5:
-                    st.markdown("### Chat with VRP Assistant")
-                    st.markdown("Ask questions about your routes or request scenario analysis.")
-                    
-                    def add_chat_message(role, content, metadata=None):
-                        timestamp = datetime.now().strftime("%H:%M:%S")
-                        message = {
-                            "role": role, 
-                            "content": content, 
-                            "timestamp": timestamp
-                        }
-                        if metadata:
-                            message["metadata"] = metadata
-                        st.session_state.chat_messages.append(message)
-                    
-                    if 'chat_viz_container' not in st.session_state:
-                        st.session_state.chat_viz_container = st.container()
-                    
-                    chat_container = st.container()
-                    with chat_container:
-                        for message in st.session_state.chat_messages:
-                            if message["role"] == "user":
-                                st.markdown(f"**You ({message['timestamp']}):** {message['content']}")
-                            elif message["role"] == "assistant":
-                                st.markdown(f"**Assistant ({message['timestamp']}):** {message['content']}")
-                                if "metadata" in message and "intent" in message["metadata"]:
-                                    intent = message["metadata"]["intent"]
-                                    if intent != "error" and intent != "unknown":
-                                        st.caption(f"*Interpreted as: {intent}*")
-                    
-                    if "chat_input" not in st.session_state:
-                        st.session_state.chat_input = ""
-                    
-                    if "processing_chat" not in st.session_state:
-                        st.session_state.processing_chat = False
-                    
-                    def submit_message():
-                        if st.session_state.chat_input:
-                            user_message = st.session_state.chat_input
-                            st.session_state.chat_input = ""  # Clear input
-                            st.session_state.processing_chat = True  # Set processing flag
-                            st.session_state.current_query = user_message  # Store current query
-                    
-                    user_input = st.text_input(
-                        "Type your message here:", 
-                        key="chat_input",
-                        on_change=submit_message
-                    )
-                    
-                    if st.session_state.processing_chat and hasattr(st.session_state, 'current_query'):
+                if 'chat_messages' not in st.session_state:
+                    st.session_state.chat_messages = []
+                
+                if 'active_tab' not in st.session_state:
+                    st.session_state.active_tab = 0
+                
+                if 'chat_viz' not in st.session_state:
+                    st.session_state.chat_viz = None
+                
+                if 'query_to_process' not in st.session_state:
+                    st.session_state.query_to_process = None
+                
+                def add_chat_message(role, content, metadata=None):
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+                    message = {
+                        "role": role, 
+                        "content": content, 
+                        "timestamp": timestamp
+                    }
+                    if metadata:
+                        message["metadata"] = metadata
+                    st.session_state.chat_messages.append(message)
+                
+                def handle_chat_submit():
+                    query = st.session_state.user_input
+                    if query:
+                        add_chat_message("user", query)
+                        add_log_message(f"Processing chat query: '{query}'", "INFO")
+                        
                         try:
-                            user_message = st.session_state.current_query
-                            add_chat_message("user", user_message)
-                            add_log_message(f"Processing chat query: '{user_message}'", "INFO")
-                            
                             result = process_query(
-                                query=user_message,
+                                query=query,
                                 route_info=route_info,
                                 kpi_df=kpi_df,
                                 detailed_df=detailed_df,
@@ -463,10 +438,7 @@ if uploaded_file is not None or use_sample_data:
                             
                             if result["visualization"]:
                                 add_log_message("Generating visualization for query", "INFO")
-                                viz_id = f"chat_viz_{uuid.uuid4()}"
-                                with st.session_state.chat_viz_container:
-                                    st.markdown("### Generated Visualization")
-                                    st.plotly_chart(result["visualization"], use_container_width=True, key=viz_id)
+                                st.session_state.chat_viz = result["visualization"]
                         
                         except Exception as e:
                             error_msg = f"An error occurred while processing your query: {str(e)}"
@@ -474,9 +446,159 @@ if uploaded_file is not None or use_sample_data:
                             add_log_message(traceback.format_exc(), "ERROR")
                             add_chat_message("assistant", f"I'm sorry, I encountered an error: {str(e)}")
                         
-                        st.session_state.processing_chat = False
-                        if hasattr(st.session_state, 'current_query'):
-                            delattr(st.session_state, 'current_query')
+                        st.session_state.user_input = ""
+                
+                tab_names = ["KPIs & Visualizations", "Interactive Map (Folium)", 
+                            "Interactive Map (Plotly)", "Export Results", "Chat"]
+                tabs = st.tabs(tab_names)
+                
+                with tabs[0]:
+                    if st.session_state.active_tab == 0:
+                        st.markdown("### Key Performance Indicators (KPIs)")
+                        
+                        kpi_df = pd.DataFrame([
+                            {
+                                'Vehicle': f"Vehicle {route['vehicle_id']}",
+                                'Customers Visited': len(route['stops']),
+                                'Distance (km)': round(route['total_distance'], 2),
+                                'Demand Delivered': route['total_demand'],
+                                'Capacity': vehicle_capacity,
+                                'Capacity Utilization (%)': round(route['total_demand'] / vehicle_capacity * 100, 2)
+                            } for route in route_info
+                        ])
+                        
+                        total_row = pd.DataFrame([{
+                            'Vehicle': 'TOTAL',
+                            'Customers Visited': kpi_df['Customers Visited'].sum(),
+                            'Distance (km)': kpi_df['Distance (km)'].sum(),
+                            'Demand Delivered': kpi_df['Demand Delivered'].sum(),
+                            'Capacity': kpi_df['Capacity'].sum(),
+                            'Capacity Utilization (%)': round(kpi_df['Demand Delivered'].sum() / kpi_df['Capacity'].sum() * 100, 2)
+                        }])
+                        
+                        kpi_df = pd.concat([kpi_df, total_row], ignore_index=True)
+                        st.dataframe(kpi_df, use_container_width=True)
+                        
+                        st.markdown("### Visualizations")
+                        
+                        viz_col1, viz_col2 = st.columns(2)
+                        
+                        with viz_col1:
+                            distance_fig = px.bar(
+                                kpi_df[:-1],  # Exclude total row
+                                x='Vehicle',
+                                y='Distance (km)',
+                                title='Distance Traveled per Vehicle',
+                                color='Distance (km)',
+                                color_continuous_scale='Viridis'
+                            )
+                            st.plotly_chart(distance_fig, use_container_width=True, key="distance_chart")
+                        
+                        with viz_col2:
+                            utilization_fig = px.bar(
+                                kpi_df[:-1],  # Exclude total row
+                                x='Vehicle',
+                                y='Capacity Utilization (%)',
+                                title='Vehicle Capacity Utilization',
+                                color='Capacity Utilization (%)',
+                                color_continuous_scale='RdYlGn'
+                            )
+                            st.plotly_chart(utilization_fig, use_container_width=True, key="utilization_chart")
+                        
+                        demand_fig = px.pie(
+                            kpi_df[:-1],  # Exclude total row
+                            values='Demand Delivered',
+                            names='Vehicle',
+                            title='Demand Distribution Across Vehicles',
+                            hole=0.4
+                        )
+                        st.plotly_chart(demand_fig, use_container_width=True, key="demand_chart")
+                
+                with tabs[1]:
+                    if st.session_state.active_tab == 1:
+                        st.markdown("### Route Visualization (Folium)")
+                        if FOLIUM_AVAILABLE:
+                            m = create_folium_map(df, solution_data['routes'])
+                            folium_static(m)
+                        else:
+                            st.warning("Folium map visualization is not available. Please use the Plotly map in the next tab.")
+                            st.info("To enable Folium maps, make sure the 'streamlit-folium' package is installed.")
+                
+                with tabs[2]:
+                    if st.session_state.active_tab == 2:
+                        st.markdown("### Route Visualization (Plotly)")
+                        fig = create_plotly_map(df, solution_data['routes'])
+                        st.plotly_chart(fig, use_container_width=True, key="plotly_map_chart")
+                
+                with tabs[3]:
+                    if st.session_state.active_tab == 3:
+                        st.markdown("### Export Results")
+                        
+                        detailed_results = []
+                        for route in route_info:
+                            vehicle_id = route['vehicle_id']
+                            for i, stop in enumerate(route['stops']):
+                                detailed_results.append({
+                                    'Vehicle': f"Vehicle {vehicle_id}",
+                                    'Stop Number': i + 1,
+                                    'Customer ID': stop['customer_id'],
+                                    'Demand': stop['demand'],
+                                    'Latitude': df.iloc[stop['node_idx']]['Latitude'],
+                                    'Longitude': df.iloc[stop['node_idx']]['Longitude']
+                                })
+                        
+                        detailed_df = pd.DataFrame(detailed_results)
+                        
+                        st.dataframe(detailed_df)
+                        
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        
+                        st.markdown(
+                            get_download_link(
+                                kpi_df, 
+                                f"vrp_summary_{timestamp}.xlsx", 
+                                "Download Route Summary"
+                            ), 
+                            unsafe_allow_html=True
+                        )
+                        
+                        st.markdown(
+                            get_download_link(
+                                detailed_df, 
+                                f"vrp_detailed_{timestamp}.xlsx", 
+                                "Download Detailed Results"
+                            ), 
+                            unsafe_allow_html=True
+                        )
+                
+                with tabs[4]:
+                    st.markdown("### Chat with VRP Assistant")
+                    st.markdown("Ask questions about your routes or request scenario analysis.")
+                    
+                    if 'chat_messages' not in st.session_state:
+                        st.session_state.chat_messages = []
+                    
+                    if 'chat_viz' not in st.session_state:
+                        st.session_state.chat_viz = None
+                    
+                    chat_container = st.container()
+                    with chat_container:
+                        for message in st.session_state.chat_messages:
+                            if message["role"] == "user":
+                                st.markdown(f"**You ({message['timestamp']}):** {message['content']}")
+                            elif message["role"] == "assistant":
+                                st.markdown(f"**Assistant ({message['timestamp']}):** {message['content']}")
+                                if "metadata" in message and "intent" in message["metadata"]:
+                                    intent = message["metadata"]["intent"]
+                                    if intent != "error" and intent != "unknown":
+                                        st.caption(f"*Interpreted as: {intent}*")
+                    
+                    if st.session_state.chat_viz is not None:
+                        st.markdown("### Generated Visualization")
+                        st.plotly_chart(st.session_state.chat_viz, use_container_width=True, key="chat_visualization")
+                    
+                    st.text_input("Type your message here:", key="user_input", on_change=handle_chat_submit)
+                
             except Exception as e:
                 error_msg = f"An error occurred in the chat interface: {str(e)}"
                 add_log_message(error_msg, "ERROR")
