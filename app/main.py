@@ -426,6 +426,8 @@ if uploaded_file is not None or use_sample_data:
                             add_chat_message("user", user_input)
                             
                             try:
+                                add_log_message(f"Processing chat query: '{user_input}'", "INFO")
+                                
                                 result = process_query(
                                     query=user_input,
                                     route_info=route_info,
@@ -434,6 +436,8 @@ if uploaded_file is not None or use_sample_data:
                                     vehicle_capacity=vehicle_capacity
                                 )
                                 
+                                add_log_message(f"Query processed with intent: {result['intent']}", "INFO")
+                                
                                 add_chat_message(
                                     "assistant", 
                                     result["response_text"], 
@@ -441,6 +445,7 @@ if uploaded_file is not None or use_sample_data:
                                 )
                                 
                                 if result["visualization"]:
+                                    add_log_message("Generating visualization for query", "INFO")
                                     viz_id = f"chat_viz_{uuid.uuid4()}"
                                     with st.session_state.chat_viz_container:
                                         st.markdown("### Generated Visualization")
@@ -449,11 +454,10 @@ if uploaded_file is not None or use_sample_data:
                             except Exception as e:
                                 error_msg = f"An error occurred while processing your query: {str(e)}"
                                 add_log_message(error_msg, "ERROR")
+                                add_log_message(traceback.format_exc(), "ERROR")
                                 add_chat_message("assistant", f"I'm sorry, I encountered an error: {str(e)}")
                             
                             st.session_state.chat_input = ""
-                            
-                            st.experimental_rerun()
             except Exception as e:
                 error_msg = f"An error occurred in the chat interface: {str(e)}"
                 add_log_message(error_msg, "ERROR")
