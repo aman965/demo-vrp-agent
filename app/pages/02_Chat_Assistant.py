@@ -140,7 +140,9 @@ if st.button("Send", on_click=process_user_query):
     pass
 
 if st.button("Return to Optimization Page"):
-    st.switch_page("/")
+    import webbrowser
+    st.markdown("[Return to main page](/)") 
+    st.markdown('<meta http-equiv="refresh" content="0;url=/" />', unsafe_allow_html=True)
 
 with st.expander("Solver Log", expanded=False):
     log_text = "\n".join(st.session_state.log_messages) if 'log_messages' in st.session_state else ""
