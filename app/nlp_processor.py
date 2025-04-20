@@ -1,5 +1,6 @@
 import json
 import openai
+from openai import OpenAI
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -9,39 +10,48 @@ import numpy as np
 from io import StringIO
 import re
 import traceback
+import os
+
+API_KEY_AVAILABLE = False
+MODEL_NAME = "gpt-3.5-turbo"  # Default model
+client = None
 
 try:
     api_key = st.secrets["OPENAI_API_KEY"]
-    openai.api_key = api_key
-    
-    MODEL_NAME = st.secrets.get("OPENAI_MODEL", "gpt-3.5-turbo")
-    
-    API_KEY_AVAILABLE = True
-    st.success(f"OpenAI API key found in st.secrets. Using model: {MODEL_NAME}. NLP features are enabled.")
-except (KeyError, TypeError):
+    if api_key and len(api_key) > 0:
+        MODEL_NAME = st.secrets.get("OPENAI_MODEL", "gpt-3.5-turbo")
+        client = OpenAI(api_key=api_key)
+        API_KEY_AVAILABLE = True
+        st.success(f"OpenAI API key found in Streamlit secrets. Using model: {MODEL_NAME}")
+    else:
+        st.warning("OpenAI API key in Streamlit secrets is empty.")
+except Exception as e:
+    st.warning(f"Could not load OpenAI API key from Streamlit secrets: {str(e)}")
+
+if not API_KEY_AVAILABLE:
     try:
-        import os
-        api_key = os.environ.get("streamlit_demo")
-        if api_key:
-            openai.api_key = api_key
-            MODEL_NAME = "gpt-3.5-turbo"  # Default model if not in secrets
+        api_key = os.environ.get("vrp_demo_key")
+        if api_key and len(api_key) > 0:
+            client = OpenAI(api_key=api_key)
             API_KEY_AVAILABLE = True
-            st.success(f"OpenAI API key found in environment variables. Using model: {MODEL_NAME}. NLP features are enabled.")
+            st.success(f"OpenAI API key found in environment variable 'vrp_demo_key'. Using model: {MODEL_NAME}")
         else:
-            api_key = os.environ.get("OPENAI_API_KEY")
-            if api_key:
-                openai.api_key = api_key
-                MODEL_NAME = "gpt-3.5-turbo"  # Default model if not in secrets
+            api_key = os.environ.get("streamlit_demo")
+            if api_key and len(api_key) > 0:
+                client = OpenAI(api_key=api_key)
                 API_KEY_AVAILABLE = True
-                st.success(f"OpenAI API key found in OPENAI_API_KEY environment variable. Using model: {MODEL_NAME}. NLP features are enabled.")
+                st.success(f"OpenAI API key found in environment variable 'streamlit_demo'. Using model: {MODEL_NAME}")
             else:
-                API_KEY_AVAILABLE = False
-                MODEL_NAME = "gpt-3.5-turbo"  # Default model even if API key is not available
-                st.error("OpenAI API key not found. Please add OPENAI_API_KEY to your Streamlit secrets or environment variables.")
+                api_key = os.environ.get("OPENAI_API_KEY")
+                if api_key and len(api_key) > 0:
+                    client = OpenAI(api_key=api_key)
+                    API_KEY_AVAILABLE = True
+                    st.success(f"OpenAI API key found in environment variable 'OPENAI_API_KEY'. Using model: {MODEL_NAME}")
+                else:
+                    st.error("OpenAI API key not found. Please add OPENAI_API_KEY to your Streamlit secrets or environment variables.")
     except Exception as e:
+        st.error(f"Error accessing environment variables: {str(e)}")
         API_KEY_AVAILABLE = False
-        MODEL_NAME = "gpt-3.5-turbo"  # Default model even if API key is not available
-        st.error(f"Error accessing OpenAI API key: {str(e)}. NLP features will not work.")
 
 def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
     """
@@ -57,7 +67,7 @@ def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
     Returns:
         dict: Contains response text, visualization (if any), and intent information
     """
-    if not API_KEY_AVAILABLE:
+    if not API_KEY_AVAILABLE or client is None:
         return {
             "response_text": "Sorry, I can't process your query because the OpenAI API key is not configured in Streamlit secrets. Please add the OPENAI_API_KEY to your secrets.",
             "visualization": None,
@@ -65,11 +75,6 @@ def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
         }
     
     try:
-        st.write(f"Processing query: {query}")
-        st.write(f"Route info type: {type(route_info)}")
-        if isinstance(route_info, list) and len(route_info) > 0:
-            st.write(f"First route keys: {route_info[0].keys()}")
-        
         context = prepare_context(route_info, kpi_df, detailed_df, vehicle_capacity)
         
         response_data = query_gpt_with_context(query, context)
@@ -99,17 +104,12 @@ def prepare_context(route_info, kpi_df, detailed_df, vehicle_capacity):
     kpi_df_str = kpi_df.to_string() if not kpi_df.empty else "No KPI data available"
     detailed_df_str = detailed_df.to_string() if not detailed_df.empty else "No detailed route data available"
     
-    st.write(f"Route info type: {type(route_info)}")
-    if isinstance(route_info, list) and len(route_info) > 0:
-        st.write(f"First route keys: {route_info[0].keys()}")
-    
     route_info_str = "Route Information:\n"
     for route in route_info:
         vehicle_id = route['vehicle_id']
         stops = [stop['customer_id'] for stop in route['stops']]
         stops_str = "Depot → " + " → ".join(stops) + " → Depot"
         route_info_str += f"Vehicle {vehicle_id}: {stops_str}\n"
-    
     
     context = {
         "problem_description": "Capacitated Vehicle Routing Problem (CVRP) using Google OR-Tools",
@@ -136,6 +136,9 @@ def query_gpt_with_context(query, context):
     Returns:
         str: GPT's response
     """
+    if not API_KEY_AVAILABLE or client is None:
+        return "Sorry, I can't process your query because the OpenAI API key is not configured in Streamlit secrets. Please add the OPENAI_API_KEY to your secrets."
+    
     try:
         system_message = f"""
         You are an assistant for a Capacitated Vehicle Routing Problem (CVRP) solver application.
@@ -196,7 +199,7 @@ def query_gpt_with_context(query, context):
         ```
         """
         
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model=MODEL_NAME,  # Using model specified in settings or default to gpt-3.5-turbo
             messages=[
                 {"role": "system", "content": system_message},
@@ -206,7 +209,7 @@ def query_gpt_with_context(query, context):
             max_tokens=1000
         )
         
-        return response.choices[0]['message']['content']
+        return response.choices[0].message.content
     
     except Exception as e:
         return f"Error querying GPT: {str(e)}"
@@ -236,8 +239,6 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, ve
         code_block = code_match.group(1)
         
         try:
-            st.write(f"Executing code block: {code_block[:100]}...")
-            
             local_vars = {
                 'kpi_df': kpi_df,
                 'detailed_df': detailed_df,
@@ -261,8 +262,6 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, ve
         
         except Exception as e:
             error_msg = f"\n\nNote: There was an error executing the code: {str(e)}"
-            st.write(f"Error executing code: {str(e)}")
-            st.write(traceback.format_exc())
             result["response_text"] += error_msg
     
     return result

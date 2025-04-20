@@ -66,8 +66,7 @@ st.title("VRP Assistant Chat")
 if 'optimization_results' not in st.session_state:
     st.warning("No optimization results found. Please run optimization first.")
     if st.button("Return to Optimization Page"):
-        st.experimental_set_query_params()
-        st.experimental_rerun()
+        st.switch_page("app/main.py")
     st.stop()
 
 route_info = st.session_state.optimization_results.get('route_info')
@@ -81,8 +80,7 @@ if (route_info is None or
     vehicle_capacity is None):
     st.warning("Incomplete optimization results. Please run optimization again.")
     if st.button("Return to Optimization Page"):
-        st.experimental_set_query_params()
-        st.experimental_rerun()
+        st.switch_page("app/main.py")
     st.stop()
 
 st.markdown("### Chat with VRP Assistant")
@@ -142,8 +140,7 @@ if st.button("Send", on_click=process_user_query):
     pass
 
 if st.button("Return to Optimization Page"):
-    st.experimental_set_query_params()
-    st.experimental_rerun()
+    st.switch_page("app/main.py")
 
 with st.expander("Solver Log", expanded=False):
     log_text = "\n".join(st.session_state.log_messages) if 'log_messages' in st.session_state else ""

@@ -637,7 +637,7 @@ if uploaded_file is not None or use_sample_data:
                     }
                     
                     if st.button("Open Chat Interface", key="open_chat_button"):
-                        st.switch_page("pages/02_Chat_Assistant")
+                        st.switch_page("app/pages/02_Chat_Assistant.py")
                 
             except Exception as e:
                 error_msg = f"An error occurred in the chat interface: {str(e)}"
