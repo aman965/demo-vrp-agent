@@ -100,14 +100,19 @@ def interpret_query(query, available_metrics):
         2. visualization_request - User wants a chart or visualization
         3. comparison_request - User wants to compare metrics between vehicles
         4. summary_request - User wants an overall summary
-        5. route_detail_request - User wants specific information about a route segment or distance between points
+        5. route_detail_request - User wants specific information about a route segment or distance between points (IMPORTANT: Any query about distances between specific locations or specific segments of a route should use this intent)
         6. error - Query cannot be interpreted
         
         For each intent, extract relevant parameters:
         - For kpi_request: metric_name, vehicle_id (if specified, otherwise "all")
         - For visualization_request: chart_type (bar, pie, line), metric_name
         - For comparison_request: metric_name, comparison_type (max, min, ranking)
-        - For route_detail_request: vehicle_id, from_location, to_location, position (first, last, second, etc.)
+        - For route_detail_request: vehicle_id, from_location (e.g., "customer", "depot", "C1"), to_location (e.g., "customer", "depot", "C1"), position (e.g., "first", "last", "second-last")
+        
+        EXAMPLES:
+        Query: "How far Vehicle 4 travelled from its second last served customer Id to Depot?"
+        Intent: route_detail_request
+        Parameters: {"vehicle_id": "4", "from_location": "customer", "to_location": "depot", "position": "second-last"}
         
         Return a JSON object with the intent and parameters.
         """
