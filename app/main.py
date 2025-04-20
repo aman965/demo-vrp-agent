@@ -571,6 +571,10 @@ if uploaded_file is not None or use_sample_data:
                             unsafe_allow_html=True
                         )
                 
+                if 'process_chat' in st.session_state and st.session_state.process_chat:
+                    st.session_state.active_tab = 4
+                    st.session_state.process_chat = False
+                
                 with tabs[4]:
                     st.markdown("### Chat with VRP Assistant")
                     st.markdown("Ask questions about your routes or request scenario analysis.")
@@ -597,17 +601,16 @@ if uploaded_file is not None or use_sample_data:
                         st.markdown("### Generated Visualization")
                         st.plotly_chart(st.session_state.chat_viz, use_container_width=True, key="chat_visualization")
                     
-                    with st.form(key="chat_form", clear_on_submit=True):
-                        user_query = st.text_input("Type your message here:", key="chat_input")
-                        submit_button = st.form_submit_button("Send")
-                        
-                        if submit_button and user_query:
-                            add_chat_message("user", user_query)
-                            add_log_message(f"Processing chat query: '{user_query}'", "INFO")
+                    def process_chat_query():
+                        if st.session_state.chat_input:
+                            query = st.session_state.chat_input
+                            
+                            add_chat_message("user", query)
+                            add_log_message(f"Processing chat query: '{query}'", "INFO")
                             
                             try:
                                 result = process_query(
-                                    query=user_query,
+                                    query=query,
                                     route_info=route_info,
                                     kpi_df=kpi_df,
                                     detailed_df=detailed_df,
@@ -632,7 +635,11 @@ if uploaded_file is not None or use_sample_data:
                                 add_log_message(traceback.format_exc(), "ERROR")
                                 add_chat_message("assistant", f"I'm sorry, I encountered an error: {str(e)}")
                             
-                            st.experimental_rerun()
+                            st.session_state.process_chat = True
+                    
+                    with st.form(key="chat_form", clear_on_submit=True):
+                        st.text_input("Type your message here:", key="chat_input")
+                        submit_button = st.form_submit_button("Send", on_click=process_chat_query)
                 
             except Exception as e:
                 error_msg = f"An error occurred in the chat interface: {str(e)}"
