@@ -70,6 +70,8 @@ def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
         return handle_comparison_request(intent_data, kpi_df)
     elif intent_data["intent"] == "summary_request":
         return handle_summary_request(kpi_df, route_info, vehicle_capacity)
+    elif intent_data["intent"] == "route_detail_request":
+        return handle_route_detail_request(intent_data, route_info, detailed_df)
     else:
         return {
             "response_text": "I understand you're asking about the VRP solution, but I'm not sure how to answer that specific question. Could you try rephrasing?",
@@ -98,12 +100,14 @@ def interpret_query(query, available_metrics):
         2. visualization_request - User wants a chart or visualization
         3. comparison_request - User wants to compare metrics between vehicles
         4. summary_request - User wants an overall summary
-        5. error - Query cannot be interpreted
+        5. route_detail_request - User wants specific information about a route segment or distance between points
+        6. error - Query cannot be interpreted
         
         For each intent, extract relevant parameters:
         - For kpi_request: metric_name, vehicle_id (if specified, otherwise "all")
         - For visualization_request: chart_type (bar, pie, line), metric_name
         - For comparison_request: metric_name, comparison_type (max, min, ranking)
+        - For route_detail_request: vehicle_id, from_location, to_location, position (first, last, second, etc.)
         
         Return a JSON object with the intent and parameters.
         """
@@ -350,6 +354,108 @@ def handle_comparison_request(intent_data, kpi_df):
         "response_text": response_text,
         "visualization": None,
         "intent": "comparison_request"
+    }
+
+def handle_route_detail_request(intent_data, route_info, detailed_df):
+    """
+    Handle a request for specific route details like distances between points
+    
+    Args:
+        intent_data: The interpreted intent data
+        route_info: The route information from the solver
+        detailed_df: DataFrame with detailed route information
+        
+    Returns:
+        dict: Contains response text and visualization (if any)
+    """
+    vehicle_id = intent_data.get("vehicle_id")
+    from_location = intent_data.get("from_location")
+    to_location = intent_data.get("to_location")
+    position = intent_data.get("position")
+    
+    if vehicle_id and not vehicle_id.lower().startswith("vehicle"):
+        vehicle_id = f"Vehicle {vehicle_id}"
+    
+    vehicle_route = None
+    for route in route_info:
+        if route.get("vehicle_id") == vehicle_id:
+            vehicle_route = route
+            break
+    
+    if not vehicle_route:
+        return {
+            "response_text": f"I couldn't find route information for {vehicle_id}.",
+            "visualization": None,
+            "intent": "route_detail_request"
+        }
+    
+    stops = vehicle_route.get("stops", [])
+    
+    if (position and "second" in position.lower() and "last" in position.lower() and 
+        to_location and "depot" in to_location.lower()):
+        
+        if len(stops) < 3:  # Need at least depot -> customer -> customer -> depot
+            return {
+                "response_text": f"{vehicle_id} doesn't have enough stops to have a second-last customer.",
+                "visualization": None,
+                "intent": "route_detail_request"
+            }
+        
+        second_last_customer = stops[-2]
+        depot = stops[0]  # Assuming depot is always the first stop
+        
+        distance = vehicle_route.get("distances", {}).get(f"{second_last_customer['id']}_to_{depot['id']}")
+        
+        if distance is not None:
+            return {
+                "response_text": f"The distance from the second-last customer ({second_last_customer['id']}) to the depot for {vehicle_id} is {distance:.2f} km.",
+                "visualization": None,
+                "intent": "route_detail_request"
+            }
+        else:
+            try:
+                if detailed_df is not None and not detailed_df.empty:
+                    vehicle_df = detailed_df[detailed_df['Vehicle'] == vehicle_id]
+                    
+                    if not vehicle_df.empty:
+                        second_last_stop = vehicle_df.iloc[-2]
+                        depot_stop = vehicle_df.iloc[0]
+                        
+                        from math import radians, sin, cos, sqrt, atan2
+                        
+                        def haversine(lat1, lon1, lat2, lon2):
+                            R = 6371.0  # Earth radius in km
+                            
+                            lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+                            
+                            dlat = lat2 - lat1
+                            dlon = lon2 - lon1
+                            
+                            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+                            c = 2 * atan2(sqrt(a), sqrt(1-a))
+                            
+                            distance = R * c
+                            return distance
+                        
+                        distance = haversine(
+                            second_last_stop['Latitude'], 
+                            second_last_stop['Longitude'],
+                            depot_stop['Latitude'],
+                            depot_stop['Longitude']
+                        )
+                        
+                        return {
+                            "response_text": f"The distance from the second-last customer ({second_last_stop['CustomerID']}) to the depot for {vehicle_id} is {distance:.2f} km.",
+                            "visualization": None,
+                            "intent": "route_detail_request"
+                        }
+            except Exception as e:
+                pass
+    
+    return {
+        "response_text": f"I found the route for {vehicle_id}, but I couldn't extract the specific detail you requested. The vehicle visits these stops: {', '.join([stop['id'] for stop in stops])}.",
+        "visualization": None,
+        "intent": "route_detail_request"
     }
 
 def handle_summary_request(kpi_df, route_info, vehicle_capacity):
