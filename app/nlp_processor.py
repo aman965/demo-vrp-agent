@@ -1,6 +1,4 @@
 import json
-import openai
-from openai import OpenAI
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -15,6 +13,13 @@ import os
 API_KEY_AVAILABLE = False
 MODEL_NAME = "gpt-3.5-turbo"  # Default model
 client = None
+
+try:
+    import openai
+    from openai import OpenAI
+except ImportError:
+    st.error("Failed to import OpenAI library. Please check your installation.")
+    openai = None
 
 try:
     api_key = st.secrets["OPENAI_API_KEY"]
@@ -251,26 +256,9 @@ def query_gpt_with_context(query, context):
                 max_tokens=1000
             )
             return response.choices[0].message.content
-        except Exception as legacy_e:
-            st.warning(f"Legacy API call failed: {str(legacy_e)}")
-            
-            if client is not None:
-                try:
-                    response = client.chat.completions.create(
-                        model=MODEL_NAME,
-                        messages=[
-                            {"role": "system", "content": system_message},
-                            {"role": "user", "content": query}
-                        ],
-                        temperature=0.1,
-                        max_tokens=1000
-                    )
-                    return response.choices[0].message.content
-                except Exception as client_e:
-                    st.error(f"New client API call failed: {str(client_e)}")
-                    raise client_e
-            else:
-                raise legacy_e
+        except Exception as e:
+            st.error(f"OpenAI API call failed: {str(e)}")
+            return f"I'm sorry, I encountered an error while processing your query: {str(e)}"
         
         return response.choices[0].message.content
     
