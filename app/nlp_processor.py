@@ -87,14 +87,27 @@ def prepare_context(route_info, kpi_df, detailed_df, vehicle_capacity):
     detailed_df_str = detailed_df.to_string() if not detailed_df.empty else "No detailed route data available"
     
     route_info_str = "Route Information:\n"
-    for vehicle_id, stops in route_info.items():
-        route_info_str += f"Vehicle {vehicle_id}: {' → '.join(stops)}\n"
+    for route in route_info:
+        vehicle_id = route['vehicle_id']
+        stops = [stop['customer_id'] for stop in route['stops']]
+        stops_str = "Depot → " + " → ".join(stops) + " → Depot"
+        route_info_str += f"Vehicle {vehicle_id}: {stops_str}\n"
+    
+    route_info_dict = {}
+    for route in route_info:
+        vehicle_id = route['vehicle_id']
+        route_info_dict[vehicle_id] = {
+            'stops': route['stops'],
+            'total_distance': route['total_distance'],
+            'total_demand': route['total_demand'],
+            'route_text': route['route_text']
+        }
     
     context = {
         "problem_description": "Capacitated Vehicle Routing Problem (CVRP) using Google OR-Tools",
         "vehicle_capacity": vehicle_capacity,
         "num_vehicles": len(route_info),
-        "route_info": route_info,
+        "route_info": route_info_dict,
         "route_info_str": route_info_str,
         "kpi_df_str": kpi_df_str,
         "detailed_df_str": detailed_df_str,
@@ -142,7 +155,7 @@ def query_gpt_with_context(query, context):
         provide Python code that would extract the information from the available data structures.
         
         Available data structures:
-        - route_info: Dictionary with vehicle_id as keys and list of stops as values
+        - route_info: Dictionary with vehicle_id as keys and route details as values. Each route has 'stops', 'total_distance', 'total_demand', and 'route_text'.
         - kpi_df: DataFrame with KPI information (columns: {', '.join(context['kpi_columns'])})
         - detailed_df: DataFrame with detailed route information (columns: {', '.join(context['detailed_columns'])})
         
@@ -157,13 +170,16 @@ def query_gpt_with_context(query, context):
         
         CODE:
         ```python
-        vehicle_2_demand = kpi_df.loc[kpi_df['Vehicle'] == 2, 'Demand Delivered'].values[0]
+        vehicle_2_demand = kpi_df.loc[kpi_df['Vehicle'] == 'Vehicle 2', 'Demand Delivered'].values[0]
+        print(f"Vehicle 2 demand: {vehicle_2_demand}")
+        
+        vehicle_2_demand = route_info[2]['total_demand']
         print(f"Vehicle 2 demand: {vehicle_2_demand}")
         ```
         ```
         
         If asked about route details like "How far Vehicle 4 travelled from its second last served customer to Depot?",
-        your response should include code to calculate this specific distance.
+        your response should include code to calculate this specific distance using the detailed_df or by accessing the route_info dictionary.
         """
         
         client = openai.OpenAI(api_key=api_key)
