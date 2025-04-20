@@ -4,6 +4,10 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+import math
+import numpy as np
+from io import StringIO
+import re
 
 try:
     api_key = st.secrets["OPENAI_API_KEY"]
@@ -19,15 +23,21 @@ except (KeyError, TypeError):
             API_KEY_AVAILABLE = True
             st.success("OpenAI API key found in environment variables. NLP features are enabled.")
         else:
-            API_KEY_AVAILABLE = False
-            st.warning("OpenAI API key not found in st.secrets or environment variables. NLP features will not work.")
-    except Exception:
+            api_key = os.environ.get("OPENAI_API_KEY")
+            if api_key:
+                openai.api_key = api_key
+                API_KEY_AVAILABLE = True
+                st.success("OpenAI API key found in OPENAI_API_KEY environment variable. NLP features are enabled.")
+            else:
+                API_KEY_AVAILABLE = False
+                st.error("OpenAI API key not found. Please add OPENAI_API_KEY to your Streamlit secrets or environment variables.")
+    except Exception as e:
         API_KEY_AVAILABLE = False
-        st.warning("OpenAI API key not found in st.secrets. NLP features will not work.")
+        st.error(f"Error accessing OpenAI API key: {str(e)}. NLP features will not work.")
 
 def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
     """
-    Process a natural language query about the VRP solution
+    Process a natural language query about the VRP solution using a context-aware approach
     
     Args:
         query: The user's natural language query
@@ -47,74 +57,113 @@ def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
         }
     
     try:
-        intent_data = interpret_query(query, kpi_df.columns.tolist())
+        context = prepare_context(route_info, kpi_df, detailed_df, vehicle_capacity)
+        
+        response_data = query_gpt_with_context(query, context)
+        
+        return process_gpt_response(response_data, kpi_df, detailed_df)
+        
     except Exception as e:
         return {
             "response_text": f"I encountered an error while processing your query: {str(e)}",
             "visualization": None,
             "intent": "error"
         }
-        
-    if intent_data["intent"] == "error":
-        return {
-            "response_text": "I'm sorry, I couldn't understand your query. Please try again with a different question.",
-            "visualization": None,
-            "intent": "error"
-        }
-    
-    if intent_data["intent"] == "kpi_request":
-        return handle_kpi_request(intent_data, kpi_df)
-    elif intent_data["intent"] == "visualization_request":
-        return handle_visualization_request(intent_data, kpi_df, detailed_df)
-    elif intent_data["intent"] == "comparison_request":
-        return handle_comparison_request(intent_data, kpi_df)
-    elif intent_data["intent"] == "summary_request":
-        return handle_summary_request(kpi_df, route_info, vehicle_capacity)
-    elif intent_data["intent"] == "route_detail_request":
-        return handle_route_detail_request(intent_data, route_info, detailed_df)
-    else:
-        return {
-            "response_text": "I understand you're asking about the VRP solution, but I'm not sure how to answer that specific question. Could you try rephrasing?",
-            "visualization": None,
-            "intent": "unknown"
-        }
 
-def interpret_query(query, available_metrics):
+def prepare_context(route_info, kpi_df, detailed_df, vehicle_capacity):
     """
-    Use OpenAI to interpret the user's query and extract intent
+    Prepare context data about the CVRP problem and optimization results for GPT
+    
+    Args:
+        route_info: The route information from the solver
+        kpi_df: DataFrame with KPI information
+        detailed_df: DataFrame with detailed route information
+        vehicle_capacity: The capacity of each vehicle
+        
+    Returns:
+        dict: Contains context data about the CVRP problem and optimization results
+    """
+    kpi_df_str = kpi_df.to_string() if not kpi_df.empty else "No KPI data available"
+    detailed_df_str = detailed_df.to_string() if not detailed_df.empty else "No detailed route data available"
+    
+    route_info_str = "Route Information:\n"
+    for vehicle_id, stops in route_info.items():
+        route_info_str += f"Vehicle {vehicle_id}: {' → '.join(stops)}\n"
+    
+    context = {
+        "problem_description": "Capacitated Vehicle Routing Problem (CVRP) using Google OR-Tools",
+        "vehicle_capacity": vehicle_capacity,
+        "num_vehicles": len(route_info),
+        "route_info": route_info,
+        "route_info_str": route_info_str,
+        "kpi_df_str": kpi_df_str,
+        "detailed_df_str": detailed_df_str,
+        "kpi_columns": kpi_df.columns.tolist() if not kpi_df.empty else [],
+        "detailed_columns": detailed_df.columns.tolist() if not detailed_df.empty else []
+    }
+    
+    return context
+
+def query_gpt_with_context(query, context):
+    """
+    Query GPT with context about the CVRP problem and optimization results
     
     Args:
         query: The user's natural language query
-        available_metrics: List of available metrics in the KPI dataframe
+        context: Context data about the CVRP problem and optimization results
         
     Returns:
-        dict: Contains intent information
+        str: GPT's response
     """
     try:
         system_message = f"""
-        You are an assistant that interprets user queries about vehicle routing problem (VRP) solutions.
-        Available metrics: {', '.join(available_metrics)}
+        You are an assistant for a Capacitated Vehicle Routing Problem (CVRP) solver application.
         
-        Categorize the query into one of these intents:
-        1. kpi_request - User wants a specific KPI value
-        2. visualization_request - User wants a chart or visualization
-        3. comparison_request - User wants to compare metrics between vehicles
-        4. summary_request - User wants an overall summary
-        5. route_detail_request - User wants specific information about a route segment or distance between points (IMPORTANT: Any query about distances between specific locations or specific segments of a route should use this intent)
-        6. error - Query cannot be interpreted
+        PROBLEM DESCRIPTION:
+        The application solves CVRP using Google OR-Tools. Users upload customer data with locations and demands,
+        set the number of vehicles and vehicle capacity, and the solver finds optimal routes.
         
-        For each intent, extract relevant parameters:
-        - For kpi_request: metric_name, vehicle_id (if specified, otherwise "all")
-        - For visualization_request: chart_type (bar, pie, line), metric_name
-        - For comparison_request: metric_name, comparison_type (max, min, ranking)
-        - For route_detail_request: vehicle_id, from_location (e.g., "customer", "depot", "C1"), to_location (e.g., "customer", "depot", "C1"), position (e.g., "first", "last", "second-last")
+        AVAILABLE DATA:
+        1. Route Information - Shows the sequence of stops for each vehicle
+        {context['route_info_str']}
         
-        EXAMPLES:
-        Query: "How far Vehicle 4 travelled from its second last served customer Id to Depot?"
-        Intent: route_detail_request
-        Parameters: {"vehicle_id": "4", "from_location": "customer", "to_location": "depot", "position": "second-last"}
+        2. KPI Data - Performance metrics for each vehicle
+        {context['kpi_df_str']}
         
-        Return a JSON object with the intent and parameters.
+        3. Detailed Route Data - Detailed information about each stop
+        {context['detailed_df_str']}
+        
+        4. Configuration:
+        - Vehicle Capacity: {context['vehicle_capacity']}
+        - Number of Vehicles: {context['num_vehicles']}
+        
+        YOUR TASK:
+        Answer the user's query about the optimization results. If the query requires calculations or data extraction,
+        provide Python code that would extract the information from the available data structures.
+        
+        Available data structures:
+        - route_info: Dictionary with vehicle_id as keys and list of stops as values
+        - kpi_df: DataFrame with KPI information (columns: {', '.join(context['kpi_columns'])})
+        - detailed_df: DataFrame with detailed route information (columns: {', '.join(context['detailed_columns'])})
+        
+        Format your response as follows:
+        1. A direct answer to the user's question
+        2. If needed, include a "CODE" section with Python code that extracts the requested information
+        3. If appropriate, include a "VISUALIZATION" section with instructions for creating a visualization
+        
+        For example, if asked "What's the total demand handled by Vehicle 2?", your response might be:
+        ```
+        Vehicle 2 handled a total demand of 45 units.
+        
+        CODE:
+        ```python
+        vehicle_2_demand = kpi_df.loc[kpi_df['Vehicle'] == 2, 'Demand Delivered'].values[0]
+        print(f"Vehicle 2 demand: {vehicle_2_demand}")
+        ```
+        ```
+        
+        If asked about route details like "How far Vehicle 4 travelled from its second last served customer to Depot?",
+        your response should include code to calculate this specific distance.
         """
         
         client = openai.OpenAI(api_key=api_key)
@@ -125,418 +174,69 @@ def interpret_query(query, available_metrics):
                 {"role": "user", "content": query}
             ],
             temperature=0.1,
-            max_tokens=150,
-            response_format={"type": "json_object"}  # Request JSON response format
+            max_tokens=1000
         )
         
-        content = response.choices[0].message.content
+        return response.choices[0].message.content
+    
+    except Exception as e:
+        return f"Error querying GPT: {str(e)}"
+
+def process_gpt_response(response_text, kpi_df, detailed_df):
+    """
+    Process GPT's response to extract visualization instructions if any
+    
+    Args:
+        response_text: GPT's response text
+        kpi_df: DataFrame with KPI information
+        detailed_df: DataFrame with detailed route information
+        
+    Returns:
+        dict: Contains response text, visualization (if any), and intent information
+    """
+    result = {
+        "response_text": response_text,
+        "visualization": None,
+        "intent": "direct_response"
+    }
+    
+    code_match = re.search(r'```python\s*(.*?)\s*```', response_text, re.DOTALL)
+    if code_match:
+        code_block = code_match.group(1)
         
         try:
-            intent_data = json.loads(content)
-        except json.JSONDecodeError:
-            try:
-                json_str = content[content.find('{'):content.rfind('}')+1]
-                intent_data = json.loads(json_str)
-            except (json.JSONDecodeError, ValueError):
-                intent_data = {"intent": "error", "reason": "Failed to parse response"}
-        
-        return intent_data
-    
-    except Exception as e:
-        return {"intent": "error", "reason": str(e)}
-
-def handle_kpi_request(intent_data, kpi_df):
-    """
-    Handle a request for a specific KPI value
-    
-    Args:
-        intent_data: The interpreted intent data
-        kpi_df: DataFrame with KPI information
-        
-    Returns:
-        dict: Contains response text and visualization (if any)
-    """
-    metric_name = intent_data.get("metric_name")
-    vehicle_id = intent_data.get("vehicle_id", "all")
-    
-    metric_mapping = {
-        "distance": "Distance (km)",
-        "demand": "Demand Delivered",
-        "customers": "Customers Visited",
-        "utilization": "Capacity Utilization (%)",
-        "capacity": "Capacity"
-    }
-    
-    actual_metric = None
-    for key, value in metric_mapping.items():
-        if metric_name and key in metric_name.lower():
-            actual_metric = value
-            break
-    
-    if not actual_metric and metric_name:
-        for col in kpi_df.columns:
-            if metric_name.lower() in col.lower():
-                actual_metric = col
-                break
-    
-    if not actual_metric:
-        return {
-            "response_text": f"I couldn't find information about '{metric_name}'. Available metrics are: {', '.join(kpi_df.columns.tolist())}",
-            "visualization": None,
-            "intent": "kpi_request"
-        }
-    
-    if vehicle_id == "all" or vehicle_id.lower() == "total":
-        value = kpi_df.iloc[-1][actual_metric]
-        response_text = f"The total {actual_metric} across all vehicles is {value}"
-    else:
-        vehicle_row = kpi_df[kpi_df['Vehicle'] == vehicle_id]
-        if len(vehicle_row) == 0:
-            vehicle_row = kpi_df[kpi_df['Vehicle'] == f"Vehicle {vehicle_id}"]
-        
-        if len(vehicle_row) == 0:
-            return {
-                "response_text": f"I couldn't find information for {vehicle_id}. Available vehicles are: {', '.join(kpi_df['Vehicle'].tolist()[:-1])}",
-                "visualization": None,
-                "intent": "kpi_request"
+            local_vars = {
+                'kpi_df': kpi_df,
+                'detailed_df': detailed_df,
+                'pd': pd,
+                'px': px,
+                'go': go,
+                'np': np,
+                'math': math
             }
+            
+            exec(code_block, globals(), local_vars)
+            
+            if 'fig' in local_vars and (isinstance(local_vars['fig'], go.Figure) or 
+                                       hasattr(local_vars['fig'], 'update_layout')):
+                result["visualization"] = local_vars['fig']
+                result["intent"] = "visualization"
         
-        value = vehicle_row.iloc[0][actual_metric]
-        response_text = f"The {actual_metric} for {vehicle_row.iloc[0]['Vehicle']} is {value}"
+        except Exception as e:
+            result["response_text"] += f"\n\nNote: There was an error executing the code: {str(e)}"
     
-    return {
-        "response_text": response_text,
-        "visualization": None,
-        "intent": "kpi_request"
-    }
+    return result
 
-def handle_visualization_request(intent_data, kpi_df, detailed_df):
+def haversine(lon1, lat1, lon2, lat2):
     """
-    Handle a request for a visualization
-    
-    Args:
-        intent_data: The interpreted intent data
-        kpi_df: DataFrame with KPI information
-        detailed_df: DataFrame with detailed route information
-        
-    Returns:
-        dict: Contains response text and visualization
+    Calculate the great circle distance between two points 
+    on the earth (specified in decimal degrees)
     """
-    chart_type = intent_data.get("chart_type", "bar")
-    metric_name = intent_data.get("metric_name")
+    lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
     
-    metric_mapping = {
-        "distance": "Distance (km)",
-        "demand": "Demand Delivered",
-        "customers": "Customers Visited",
-        "utilization": "Capacity Utilization (%)",
-        "capacity": "Capacity"
-    }
-    
-    actual_metric = None
-    for key, value in metric_mapping.items():
-        if metric_name and key in metric_name.lower():
-            actual_metric = value
-            break
-    
-    if not actual_metric and metric_name:
-        for col in kpi_df.columns:
-            if metric_name.lower() in col.lower():
-                actual_metric = col
-                break
-    
-    if not actual_metric:
-        return {
-            "response_text": f"I couldn't create a visualization for '{metric_name}'. Available metrics are: {', '.join(kpi_df.columns.tolist())}",
-            "visualization": None,
-            "intent": "visualization_request"
-        }
-    
-    try:
-        if chart_type.lower() == "pie":
-            fig = px.pie(
-                kpi_df[:-1],  # Exclude total row
-                values=actual_metric,
-                names='Vehicle',
-                title=f'{actual_metric} Distribution Across Vehicles',
-                hole=0.4
-            )
-            response_text = f"Here's a pie chart showing the distribution of {actual_metric} across vehicles."
-        else:  # Default to bar chart
-            fig = px.bar(
-                kpi_df[:-1],  # Exclude total row
-                x='Vehicle',
-                y=actual_metric,
-                title=f'{actual_metric} per Vehicle',
-                color=actual_metric,
-                color_continuous_scale='Viridis'
-            )
-            response_text = f"Here's a bar chart showing {actual_metric} for each vehicle."
-        
-        return {
-            "response_text": response_text,
-            "visualization": fig,
-            "intent": "visualization_request"
-        }
-    except Exception as e:
-        return {
-            "response_text": f"I encountered an error creating the visualization: {str(e)}",
-            "visualization": None,
-            "intent": "visualization_request"
-        }
-
-def handle_comparison_request(intent_data, kpi_df):
-    """
-    Handle a request to compare metrics between vehicles
-    
-    Args:
-        intent_data: The interpreted intent data
-        kpi_df: DataFrame with KPI information
-        
-    Returns:
-        dict: Contains response text and visualization (if any)
-    """
-    metric_name = intent_data.get("metric_name")
-    comparison_type = intent_data.get("comparison_type", "ranking")
-    
-    metric_mapping = {
-        "distance": "Distance (km)",
-        "demand": "Demand Delivered",
-        "customers": "Customers Visited",
-        "utilization": "Capacity Utilization (%)",
-        "capacity": "Capacity"
-    }
-    
-    actual_metric = None
-    for key, value in metric_mapping.items():
-        if metric_name and key in metric_name.lower():
-            actual_metric = value
-            break
-    
-    if not actual_metric and metric_name:
-        for col in kpi_df.columns:
-            if metric_name.lower() in col.lower():
-                actual_metric = col
-                break
-    
-    if not actual_metric:
-        return {
-            "response_text": f"I couldn't compare '{metric_name}'. Available metrics are: {', '.join(kpi_df.columns.tolist())}",
-            "visualization": None,
-            "intent": "comparison_request"
-        }
-    
-    vehicle_df = kpi_df[:-1].copy()
-    
-    if comparison_type.lower() == "max":
-        max_vehicle = vehicle_df.loc[vehicle_df[actual_metric].idxmax()]
-        response_text = f"The vehicle with the highest {actual_metric} is {max_vehicle['Vehicle']} with a value of {max_vehicle[actual_metric]}."
-    elif comparison_type.lower() == "min":
-        min_vehicle = vehicle_df.loc[vehicle_df[actual_metric].idxmin()]
-        response_text = f"The vehicle with the lowest {actual_metric} is {min_vehicle['Vehicle']} with a value of {min_vehicle[actual_metric]}."
-    else:  # Default to ranking
-        sorted_df = vehicle_df.sort_values(by=actual_metric, ascending=False)
-        
-        ranking_text = "\n".join([f"{i+1}. {row['Vehicle']}: {row[actual_metric]}" for i, (_, row) in enumerate(sorted_df.iterrows())])
-        response_text = f"Here's the ranking of vehicles by {actual_metric}:\n{ranking_text}"
-        
-        fig = px.bar(
-            sorted_df,
-            x='Vehicle',
-            y=actual_metric,
-            title=f'Ranking of Vehicles by {actual_metric}',
-            color=actual_metric,
-            color_continuous_scale='Viridis'
-        )
-        
-        return {
-            "response_text": response_text,
-            "visualization": fig,
-            "intent": "comparison_request"
-        }
-    
-    return {
-        "response_text": response_text,
-        "visualization": None,
-        "intent": "comparison_request"
-    }
-
-def handle_route_detail_request(intent_data, route_info, detailed_df):
-    """
-    Handle a request for specific route details like distances between points
-    
-    Args:
-        intent_data: The interpreted intent data
-        route_info: The route information from the solver
-        detailed_df: DataFrame with detailed route information
-        
-    Returns:
-        dict: Contains response text and visualization (if any)
-    """
-    vehicle_id = intent_data.get("vehicle_id")
-    from_location = intent_data.get("from_location")
-    to_location = intent_data.get("to_location")
-    position = intent_data.get("position")
-    
-    if vehicle_id and not vehicle_id.lower().startswith("vehicle"):
-        vehicle_id = f"Vehicle {vehicle_id}"
-    
-    vehicle_route = None
-    for route in route_info:
-        if route.get("vehicle_id") == vehicle_id:
-            vehicle_route = route
-            break
-    
-    if not vehicle_route:
-        return {
-            "response_text": f"I couldn't find route information for {vehicle_id}.",
-            "visualization": None,
-            "intent": "route_detail_request"
-        }
-    
-    stops = vehicle_route.get("stops", [])
-    
-    if (position and "second" in position.lower() and "last" in position.lower() and 
-        to_location and "depot" in to_location.lower()):
-        
-        if len(stops) < 3:  # Need at least depot -> customer -> customer -> depot
-            return {
-                "response_text": f"{vehicle_id} doesn't have enough stops to have a second-last customer.",
-                "visualization": None,
-                "intent": "route_detail_request"
-            }
-        
-        second_last_customer = stops[-2]
-        depot = stops[0]  # Assuming depot is always the first stop
-        
-        distance = vehicle_route.get("distances", {}).get(f"{second_last_customer['id']}_to_{depot['id']}")
-        
-        if distance is not None:
-            return {
-                "response_text": f"The distance from the second-last customer ({second_last_customer['id']}) to the depot for {vehicle_id} is {distance:.2f} km.",
-                "visualization": None,
-                "intent": "route_detail_request"
-            }
-        else:
-            try:
-                if detailed_df is not None and not detailed_df.empty:
-                    vehicle_df = detailed_df[detailed_df['Vehicle'] == vehicle_id]
-                    
-                    if not vehicle_df.empty:
-                        second_last_stop = vehicle_df.iloc[-2]
-                        depot_stop = vehicle_df.iloc[0]
-                        
-                        from math import radians, sin, cos, sqrt, atan2
-                        
-                        def haversine(lat1, lon1, lat2, lon2):
-                            R = 6371.0  # Earth radius in km
-                            
-                            lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-                            
-                            dlat = lat2 - lat1
-                            dlon = lon2 - lon1
-                            
-                            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-                            c = 2 * atan2(sqrt(a), sqrt(1-a))
-                            
-                            distance = R * c
-                            return distance
-                        
-                        distance = haversine(
-                            second_last_stop['Latitude'], 
-                            second_last_stop['Longitude'],
-                            depot_stop['Latitude'],
-                            depot_stop['Longitude']
-                        )
-                        
-                        return {
-                            "response_text": f"The distance from the second-last customer ({second_last_stop['CustomerID']}) to the depot for {vehicle_id} is {distance:.2f} km.",
-                            "visualization": None,
-                            "intent": "route_detail_request"
-                        }
-            except Exception as e:
-                pass
-    
-    return {
-        "response_text": f"I found the route for {vehicle_id}, but I couldn't extract the specific detail you requested. The vehicle visits these stops: {', '.join([stop['id'] for stop in stops])}.",
-        "visualization": None,
-        "intent": "route_detail_request"
-    }
-
-def handle_summary_request(kpi_df, route_info, vehicle_capacity):
-    """
-    Handle a request for an overall summary of the solution
-    
-    Args:
-        kpi_df: DataFrame with KPI information
-        route_info: The route information from the solver
-        vehicle_capacity: The capacity of each vehicle
-        
-    Returns:
-        dict: Contains response text and visualization (if any)
-    """
-    total_row = kpi_df.iloc[-1]
-    
-    total_vehicles = len(kpi_df) - 1  # Exclude total row
-    active_vehicles = sum(1 for route in route_info if len(route['stops']) > 0)
-    avg_stops_per_vehicle = total_row['Customers Visited'] / active_vehicles if active_vehicles > 0 else 0
-    
-    summary_text = f"""## Solution Summary
-    
-    - **Total Distance**: {total_row['Distance (km)']} km
-    - **Total Customers Served**: {int(total_row['Customers Visited'])}
-    - **Total Demand Delivered**: {total_row['Demand Delivered']}
-    - **Overall Capacity Utilization**: {total_row['Capacity Utilization (%)']}%
-    - **Vehicles Used**: {active_vehicles} out of {total_vehicles}
-    - **Average Stops Per Vehicle**: {avg_stops_per_vehicle:.2f}
-    """
-    
-    fig = go.Figure()
-    
-    for i, (_, row) in enumerate(kpi_df[:-1].iterrows()):
-        fig.add_trace(go.Bar(
-            x=[row['Vehicle']],
-            y=[row['Distance (km)']],
-            name=f"{row['Vehicle']} - Distance",
-            marker_color='blue',
-            opacity=0.7,
-            text=[f"{row['Distance (km)']} km"],
-            textposition='auto'
-        ))
-        
-        fig.add_trace(go.Bar(
-            x=[row['Vehicle']],
-            y=[row['Capacity Utilization (%)']],
-            name=f"{row['Vehicle']} - Utilization",
-            marker_color='green',
-            opacity=0.7,
-            text=[f"{row['Capacity Utilization (%)']}%"],
-            textposition='auto',
-            yaxis='y2'
-        ))
-    
-    fig.update_layout(
-        title="Solution Overview: Distance and Capacity Utilization",
-        xaxis_title="Vehicle",
-        yaxis_title="Distance (km)",
-        yaxis2=dict(
-            title="Capacity Utilization (%)",
-            overlaying='y',
-            side='right',
-            range=[0, 100]
-        ),
-        barmode='group',
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
-    )
-    
-    return {
-        "response_text": summary_text,
-        "visualization": fig,
-        "intent": "summary_request"
-    }
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    r = 6371  # Radius of earth in kilometers
+    return c * r
