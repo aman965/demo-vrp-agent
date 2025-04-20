@@ -190,7 +190,7 @@ def query_gpt_with_context(query, context):
         """
         
         response = openai.ChatCompletion.create(
-            model="gpt-4",  # Using GPT-4 as requested by the user
+            model="gpt-3.5-turbo",  # Using GPT-3.5 Turbo as fallback since GPT-4 is not available
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": query}
@@ -199,7 +199,7 @@ def query_gpt_with_context(query, context):
             max_tokens=1000
         )
         
-        return response.choices[0].message.content
+        return response.choices[0]['message']['content']
     
     except Exception as e:
         return f"Error querying GPT: {str(e)}"
