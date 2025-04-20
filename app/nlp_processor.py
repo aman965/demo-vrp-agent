@@ -21,9 +21,19 @@ try:
     if api_key and len(api_key) > 0:
         MODEL_NAME = st.secrets.get("OPENAI_MODEL", "gpt-3.5-turbo")
         openai.api_key = api_key
-        client = OpenAI(api_key=api_key, base_url="https://api.openai.com/v1")
-        API_KEY_AVAILABLE = True
-        st.success(f"OpenAI API key found in Streamlit secrets. Using model: {MODEL_NAME}")
+        try:
+            openai.Model.list()
+            API_KEY_AVAILABLE = True
+            st.success(f"OpenAI API key found in Streamlit secrets (legacy API). Using model: {MODEL_NAME}")
+        except Exception as api_e:
+            st.warning(f"Legacy API test failed: {str(api_e)}")
+            try:
+                client = OpenAI(api_key=api_key)
+                client.models.list()
+                API_KEY_AVAILABLE = True
+                st.success(f"OpenAI API key found in Streamlit secrets (new client). Using model: {MODEL_NAME}")
+            except Exception as client_e:
+                st.warning(f"New client API test failed: {str(client_e)}")
     else:
         st.warning("OpenAI API key in Streamlit secrets is empty.")
 except Exception as e:
@@ -34,23 +44,50 @@ if not API_KEY_AVAILABLE:
         api_key = os.environ.get("vrp_demo_key")
         if api_key and len(api_key) > 0:
             openai.api_key = api_key
-            client = OpenAI(api_key=api_key, base_url="https://api.openai.com/v1")
-            API_KEY_AVAILABLE = True
-            st.success(f"OpenAI API key found in environment variable 'vrp_demo_key'. Using model: {MODEL_NAME}")
+            try:
+                openai.Model.list()
+                API_KEY_AVAILABLE = True
+                st.success(f"OpenAI API key found in environment variable 'vrp_demo_key' (legacy API). Using model: {MODEL_NAME}")
+            except Exception:
+                try:
+                    client = OpenAI(api_key=api_key)
+                    client.models.list()
+                    API_KEY_AVAILABLE = True
+                    st.success(f"OpenAI API key found in environment variable 'vrp_demo_key' (new client). Using model: {MODEL_NAME}")
+                except Exception as e:
+                    st.warning(f"API key from vrp_demo_key failed: {str(e)}")
         else:
             api_key = os.environ.get("streamlit_demo")
             if api_key and len(api_key) > 0:
                 openai.api_key = api_key
-                client = OpenAI(api_key=api_key, base_url="https://api.openai.com/v1")
-                API_KEY_AVAILABLE = True
-                st.success(f"OpenAI API key found in environment variable 'streamlit_demo'. Using model: {MODEL_NAME}")
+                try:
+                    openai.Model.list()
+                    API_KEY_AVAILABLE = True
+                    st.success(f"OpenAI API key found in environment variable 'streamlit_demo' (legacy API). Using model: {MODEL_NAME}")
+                except Exception:
+                    try:
+                        client = OpenAI(api_key=api_key)
+                        client.models.list()
+                        API_KEY_AVAILABLE = True
+                        st.success(f"OpenAI API key found in environment variable 'streamlit_demo' (new client). Using model: {MODEL_NAME}")
+                    except Exception as e:
+                        st.warning(f"API key from streamlit_demo failed: {str(e)}")
             else:
                 api_key = os.environ.get("OPENAI_API_KEY")
                 if api_key and len(api_key) > 0:
                     openai.api_key = api_key
-                    client = OpenAI(api_key=api_key, base_url="https://api.openai.com/v1")
-                    API_KEY_AVAILABLE = True
-                    st.success(f"OpenAI API key found in environment variable 'OPENAI_API_KEY'. Using model: {MODEL_NAME}")
+                    try:
+                        openai.Model.list()
+                        API_KEY_AVAILABLE = True
+                        st.success(f"OpenAI API key found in environment variable 'OPENAI_API_KEY' (legacy API). Using model: {MODEL_NAME}")
+                    except Exception:
+                        try:
+                            client = OpenAI(api_key=api_key)
+                            client.models.list()
+                            API_KEY_AVAILABLE = True
+                            st.success(f"OpenAI API key found in environment variable 'OPENAI_API_KEY' (new client). Using model: {MODEL_NAME}")
+                        except Exception as e:
+                            st.warning(f"API key from OPENAI_API_KEY failed: {str(e)}")
                 else:
                     st.error("OpenAI API key not found. Please add OPENAI_API_KEY to your Streamlit secrets or environment variables.")
     except Exception as e:
@@ -204,8 +241,8 @@ def query_gpt_with_context(query, context):
         """
         
         try:
-            response = client.chat.completions.create(
-                model=MODEL_NAME,  # Using model specified in settings or default to gpt-3.5-turbo
+            response = openai.ChatCompletion.create(
+                model=MODEL_NAME,
                 messages=[
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": query}
@@ -213,20 +250,27 @@ def query_gpt_with_context(query, context):
                 temperature=0.1,
                 max_tokens=1000
             )
-        except Exception as e:
-            if "proxies" in str(e):
-                response = openai.ChatCompletion.create(
-                    model=MODEL_NAME,
-                    messages=[
-                        {"role": "system", "content": system_message},
-                        {"role": "user", "content": query}
-                    ],
-                    temperature=0.1,
-                    max_tokens=1000
-                )
-                return response.choices[0].message.content
+            return response.choices[0].message.content
+        except Exception as legacy_e:
+            st.warning(f"Legacy API call failed: {str(legacy_e)}")
+            
+            if client is not None:
+                try:
+                    response = client.chat.completions.create(
+                        model=MODEL_NAME,
+                        messages=[
+                            {"role": "system", "content": system_message},
+                            {"role": "user", "content": query}
+                        ],
+                        temperature=0.1,
+                        max_tokens=1000
+                    )
+                    return response.choices[0].message.content
+                except Exception as client_e:
+                    st.error(f"New client API call failed: {str(client_e)}")
+                    raise client_e
             else:
-                raise e
+                raise legacy_e
         
         return response.choices[0].message.content
     
