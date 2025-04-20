@@ -626,31 +626,18 @@ if uploaded_file is not None or use_sample_data:
                     st.markdown("### Chat with VRP Assistant")
                     st.markdown("Ask questions about your routes or request scenario analysis.")
                     
-                    chat_container = st.container()
-                    with chat_container:
-                        for message in st.session_state.chat_messages:
-                            if message["role"] == "user":
-                                st.markdown(f"**You ({message['timestamp']}):** {message['content']}")
-                            elif message["role"] == "assistant":
-                                st.markdown(f"**Assistant ({message['timestamp']}):** {message['content']}")
-                                if "metadata" in message and "intent" in message["metadata"]:
-                                    intent = message["metadata"]["intent"]
-                                    if intent != "error" and intent != "unknown":
-                                        st.caption(f"*Interpreted as: {intent}*")
+                    if 'optimization_results' not in st.session_state:
+                        st.session_state.optimization_results = {}
                     
-                    if st.session_state.chat_viz is not None:
-                        st.markdown("### Generated Visualization")
-                        st.plotly_chart(st.session_state.chat_viz, use_container_width=True, key="chat_visualization")
+                    st.session_state.optimization_results = {
+                        'route_info': route_info,
+                        'kpi_df': kpi_df,
+                        'detailed_df': detailed_df,
+                        'vehicle_capacity': vehicle_capacity
+                    }
                     
-                    col1, col2 = st.columns([5, 1])
-                    with col1:
-                        st.text_input(
-                            "Type your message here:", 
-                            key="chat_input_widget", 
-                            on_change=on_chat_input_change
-                        )
-                    with col2:
-                        st.button("Send", key="send_button", on_click=on_send_button_click)
+                    if st.button("Open Chat Interface", key="open_chat_button"):
+                        st.switch_page("pages/02_Chat_Assistant")
                 
             except Exception as e:
                 error_msg = f"An error occurred in the chat interface: {str(e)}"
