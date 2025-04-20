@@ -636,7 +636,7 @@ if uploaded_file is not None or use_sample_data:
                         'vehicle_capacity': vehicle_capacity
                     }
                     
-                    if st.button("Open Chat Interface", key="open_chat_button"):
+                    if st.button("Open Chat Assistant", key="open_chat_button"):
                         st.switch_page("app/pages/02_Chat_Assistant.py")
                 
             except Exception as e:
