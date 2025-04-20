@@ -12,89 +12,38 @@ import os
 
 API_KEY_AVAILABLE = False
 MODEL_NAME = "gpt-3.5-turbo"  # Default model
-client = None
 
 try:
     import openai
-    from openai import OpenAI
 except ImportError:
     st.error("Failed to import OpenAI library. Please check your installation.")
     openai = None
 
 try:
-    api_key = st.secrets["OPENAI_API_KEY"]
+    api_key = st.secrets.get("OPENAI_API_KEY", "")
+    MODEL_NAME = st.secrets.get("OPENAI_MODEL", "gpt-3.5-turbo")
+    
     if api_key and len(api_key) > 0:
-        MODEL_NAME = st.secrets.get("OPENAI_MODEL", "gpt-3.5-turbo")
         openai.api_key = api_key
-        try:
-            openai.Model.list()
-            API_KEY_AVAILABLE = True
-            st.success(f"OpenAI API key found in Streamlit secrets (legacy API). Using model: {MODEL_NAME}")
-        except Exception as api_e:
-            st.warning(f"Legacy API test failed: {str(api_e)}")
-            try:
-                client = OpenAI(api_key=api_key)
-                client.models.list()
-                API_KEY_AVAILABLE = True
-                st.success(f"OpenAI API key found in Streamlit secrets (new client). Using model: {MODEL_NAME}")
-            except Exception as client_e:
-                st.warning(f"New client API test failed: {str(client_e)}")
+        API_KEY_AVAILABLE = True
+        st.success(f"OpenAI API key found in Streamlit secrets. Using model: {MODEL_NAME}")
     else:
         st.warning("OpenAI API key in Streamlit secrets is empty.")
 except Exception as e:
     st.warning(f"Could not load OpenAI API key from Streamlit secrets: {str(e)}")
 
-if not API_KEY_AVAILABLE:
+if not API_KEY_AVAILABLE and openai is not None:
     try:
-        api_key = os.environ.get("vrp_demo_key")
-        if api_key and len(api_key) > 0:
-            openai.api_key = api_key
-            try:
-                openai.Model.list()
-                API_KEY_AVAILABLE = True
-                st.success(f"OpenAI API key found in environment variable 'vrp_demo_key' (legacy API). Using model: {MODEL_NAME}")
-            except Exception:
-                try:
-                    client = OpenAI(api_key=api_key)
-                    client.models.list()
-                    API_KEY_AVAILABLE = True
-                    st.success(f"OpenAI API key found in environment variable 'vrp_demo_key' (new client). Using model: {MODEL_NAME}")
-                except Exception as e:
-                    st.warning(f"API key from vrp_demo_key failed: {str(e)}")
-        else:
-            api_key = os.environ.get("streamlit_demo")
+        for env_var in ["OPENAI_API_KEY", "vrp_demo_key", "streamlit_demo"]:
+            api_key = os.environ.get(env_var, "")
             if api_key and len(api_key) > 0:
                 openai.api_key = api_key
-                try:
-                    openai.Model.list()
-                    API_KEY_AVAILABLE = True
-                    st.success(f"OpenAI API key found in environment variable 'streamlit_demo' (legacy API). Using model: {MODEL_NAME}")
-                except Exception:
-                    try:
-                        client = OpenAI(api_key=api_key)
-                        client.models.list()
-                        API_KEY_AVAILABLE = True
-                        st.success(f"OpenAI API key found in environment variable 'streamlit_demo' (new client). Using model: {MODEL_NAME}")
-                    except Exception as e:
-                        st.warning(f"API key from streamlit_demo failed: {str(e)}")
-            else:
-                api_key = os.environ.get("OPENAI_API_KEY")
-                if api_key and len(api_key) > 0:
-                    openai.api_key = api_key
-                    try:
-                        openai.Model.list()
-                        API_KEY_AVAILABLE = True
-                        st.success(f"OpenAI API key found in environment variable 'OPENAI_API_KEY' (legacy API). Using model: {MODEL_NAME}")
-                    except Exception:
-                        try:
-                            client = OpenAI(api_key=api_key)
-                            client.models.list()
-                            API_KEY_AVAILABLE = True
-                            st.success(f"OpenAI API key found in environment variable 'OPENAI_API_KEY' (new client). Using model: {MODEL_NAME}")
-                        except Exception as e:
-                            st.warning(f"API key from OPENAI_API_KEY failed: {str(e)}")
-                else:
-                    st.error("OpenAI API key not found. Please add OPENAI_API_KEY to your Streamlit secrets or environment variables.")
+                API_KEY_AVAILABLE = True
+                st.success(f"OpenAI API key found in environment variable '{env_var}'. Using model: {MODEL_NAME}")
+                break
+        
+        if not API_KEY_AVAILABLE:
+            st.error("OpenAI API key not found. Please add OPENAI_API_KEY to your Streamlit secrets or environment variables.")
     except Exception as e:
         st.error(f"Error accessing environment variables: {str(e)}")
         API_KEY_AVAILABLE = False
@@ -113,7 +62,7 @@ def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
     Returns:
         dict: Contains response text, visualization (if any), and intent information
     """
-    if not API_KEY_AVAILABLE or client is None:
+    if not API_KEY_AVAILABLE or openai is None:
         return {
             "response_text": "Sorry, I can't process your query because the OpenAI API key is not configured in Streamlit secrets. Please add the OPENAI_API_KEY to your secrets.",
             "visualization": None,
@@ -182,7 +131,7 @@ def query_gpt_with_context(query, context):
     Returns:
         str: GPT's response
     """
-    if not API_KEY_AVAILABLE or client is None:
+    if not API_KEY_AVAILABLE or openai is None:
         return "Sorry, I can't process your query because the OpenAI API key is not configured in Streamlit secrets. Please add the OPENAI_API_KEY to your secrets."
     
     try:
@@ -259,8 +208,6 @@ def query_gpt_with_context(query, context):
         except Exception as e:
             st.error(f"OpenAI API call failed: {str(e)}")
             return f"I'm sorry, I encountered an error while processing your query: {str(e)}"
-        
-        return response.choices[0].message.content
     
     except Exception as e:
         return f"Error querying GPT: {str(e)}"
