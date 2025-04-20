@@ -597,7 +597,42 @@ if uploaded_file is not None or use_sample_data:
                         st.markdown("### Generated Visualization")
                         st.plotly_chart(st.session_state.chat_viz, use_container_width=True, key="chat_visualization")
                     
-                    st.text_input("Type your message here:", key="user_input", on_change=handle_chat_submit)
+                    with st.form(key="chat_form", clear_on_submit=True):
+                        user_query = st.text_input("Type your message here:", key="chat_input")
+                        submit_button = st.form_submit_button("Send")
+                        
+                        if submit_button and user_query:
+                            add_chat_message("user", user_query)
+                            add_log_message(f"Processing chat query: '{user_query}'", "INFO")
+                            
+                            try:
+                                result = process_query(
+                                    query=user_query,
+                                    route_info=route_info,
+                                    kpi_df=kpi_df,
+                                    detailed_df=detailed_df,
+                                    vehicle_capacity=vehicle_capacity
+                                )
+                                
+                                add_log_message(f"Query processed with intent: {result['intent']}", "INFO")
+                                
+                                add_chat_message(
+                                    "assistant", 
+                                    result["response_text"], 
+                                    {"intent": result["intent"]}
+                                )
+                                
+                                if result["visualization"]:
+                                    add_log_message("Generating visualization for query", "INFO")
+                                    st.session_state.chat_viz = result["visualization"]
+                            
+                            except Exception as e:
+                                error_msg = f"An error occurred while processing your query: {str(e)}"
+                                add_log_message(error_msg, "ERROR")
+                                add_log_message(traceback.format_exc(), "ERROR")
+                                add_chat_message("assistant", f"I'm sorry, I encountered an error: {str(e)}")
+                            
+                            st.experimental_rerun()
                 
             except Exception as e:
                 error_msg = f"An error occurred in the chat interface: {str(e)}"
