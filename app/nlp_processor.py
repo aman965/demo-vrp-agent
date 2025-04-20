@@ -57,11 +57,16 @@ def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
         }
     
     try:
+        st.write(f"Processing query: {query}")
+        st.write(f"Route info type: {type(route_info)}")
+        if isinstance(route_info, list) and len(route_info) > 0:
+            st.write(f"First route keys: {route_info[0].keys()}")
+        
         context = prepare_context(route_info, kpi_df, detailed_df, vehicle_capacity)
         
         response_data = query_gpt_with_context(query, context)
         
-        return process_gpt_response(response_data, kpi_df, detailed_df)
+        return process_gpt_response(response_data, kpi_df, detailed_df, context['route_info'])
         
     except Exception as e:
         return {
@@ -170,11 +175,11 @@ def query_gpt_with_context(query, context):
         
         CODE:
         ```python
-        vehicle_2_demand = kpi_df.loc[kpi_df['Vehicle'] == 'Vehicle 2', 'Demand Delivered'].values[0]
-        print(f"Vehicle 2 demand: {vehicle_2_demand}")
+        demand_from_kpi = kpi_df.loc[kpi_df['Vehicle'] == 'Vehicle 2', 'Demand Delivered'].values[0]
+        print(f"Vehicle 2 demand from KPI: {demand_from_kpi}")
         
-        vehicle_2_demand = route_info[2]['total_demand']
-        print(f"Vehicle 2 demand: {vehicle_2_demand}")
+        demand_from_route = route_info[2]['total_demand']
+        print(f"Vehicle 2 demand from route_info: {demand_from_route}")
         ```
         ```
         
@@ -198,7 +203,7 @@ def query_gpt_with_context(query, context):
     except Exception as e:
         return f"Error querying GPT: {str(e)}"
 
-def process_gpt_response(response_text, kpi_df, detailed_df):
+def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None):
     """
     Process GPT's response to extract visualization instructions if any
     
@@ -206,6 +211,7 @@ def process_gpt_response(response_text, kpi_df, detailed_df):
         response_text: GPT's response text
         kpi_df: DataFrame with KPI information
         detailed_df: DataFrame with detailed route information
+        route_info: Dictionary with route information
         
     Returns:
         dict: Contains response text, visualization (if any), and intent information
@@ -224,6 +230,7 @@ def process_gpt_response(response_text, kpi_df, detailed_df):
             local_vars = {
                 'kpi_df': kpi_df,
                 'detailed_df': detailed_df,
+                'route_info': route_info,
                 'pd': pd,
                 'px': px,
                 'go': go,
