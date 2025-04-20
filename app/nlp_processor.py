@@ -251,11 +251,22 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, ve
         "intent": "direct_response"
     }
     
+    # Check if the query is asking for a visualization
+    visualization_keywords = ['plot', 'chart', 'graph', 'visualize', 'show', 'display', 'draw']
+    if any(keyword in response_text.lower() for keyword in visualization_keywords):
+        result["intent"] = "visualization_request"
+    
     code_match = re.search(r'```python\s*(.*?)\s*```', response_text, re.DOTALL)
     if code_match:
         code_block = code_match.group(1)
         
         try:
+            try:
+                import matplotlib.pyplot as plt
+                plt_available = True
+            except ImportError:
+                plt_available = False
+                
             local_vars = {
                 'kpi_df': kpi_df,
                 'detailed_df': detailed_df,
@@ -270,15 +281,25 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, ve
                 'StringIO': StringIO
             }
             
+            if plt_available:
+                local_vars['plt'] = plt
+            
             exec(code_block, globals(), local_vars)
             
             if 'fig' in local_vars and (isinstance(local_vars['fig'], go.Figure) or 
                                        hasattr(local_vars['fig'], 'update_layout')):
                 result["visualization"] = local_vars['fig']
                 result["intent"] = "visualization"
+            
+            elif plt_available and 'plt' in local_vars and plt.get_fignums():
+                import plotly.io as pio
+                fig = pio.to_plotly(plt.gcf())
+                result["visualization"] = fig
+                result["intent"] = "visualization"
+                plt.close()  # Close matplotlib figure to free memory
         
         except Exception as e:
-            error_msg = f"\n\nNote: There was an error executing the code: {str(e)}"
+            error_msg = f"\n\nNote: There was an error executing the code: {str(e)}\n{traceback.format_exc()}"
             result["response_text"] += error_msg
     
     return result
