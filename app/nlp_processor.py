@@ -195,16 +195,35 @@ def query_gpt_with_context(query, context):
         """
         
         try:
-            response = openai.ChatCompletion.create(
-                model=MODEL_NAME,
-                messages=[
+            import requests
+            
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}"
+            }
+            
+            payload = {
+                "model": MODEL_NAME,
+                "messages": [
                     {"role": "system", "content": system_message},
                     {"role": "user", "content": query}
                 ],
-                temperature=0.1,
-                max_tokens=1000
+                "temperature": 0.1,
+                "max_tokens": 1000
+            }
+            
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers=headers,
+                json=payload
             )
-            return response.choices[0].message.content
+            
+            if response.status_code == 200:
+                return response.json()["choices"][0]["message"]["content"]
+            else:
+                error_msg = f"API call failed with status code {response.status_code}: {response.text}"
+                st.error(error_msg)
+                return f"I'm sorry, I encountered an error while processing your query: {error_msg}"
         except Exception as e:
             st.error(f"OpenAI API call failed: {str(e)}")
             return f"I'm sorry, I encountered an error while processing your query: {str(e)}"
