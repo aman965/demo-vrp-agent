@@ -244,7 +244,7 @@ def snapshot_management_ui(input_file):
             if st.button("Chat Assistant", key=f"chat_{snapshot['snapshot_id']}"):
                 st.session_state.selected_snapshot = snapshot
                 st.session_state.app_mode = 'chat_assistant'
-                st.switch_page("Chat Assistant")
+                st.switch_page("Chat Assistant Page")
                 st.stop()
         
         with col4:
@@ -285,7 +285,7 @@ def snapshot_management_ui(input_file):
         if st.button("Chat Assistant"):
             st.session_state.selected_snapshot = selected_snapshot
             st.session_state.app_mode = 'chat_assistant'
-            st.switch_page("Chat Assistant")
+            st.switch_page("Chat Assistant Page")
             st.stop()
     
     with col3:
