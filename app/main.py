@@ -33,6 +33,7 @@ from utils import create_distance_matrix, get_download_link, create_folium_map, 
 from solver import solve_cvrp, get_route_info
 from nlp_processor import process_query
 from input_repository import input_repository_page
+from scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,6 +50,12 @@ if 'selected_file' not in st.session_state:
     
 if 'selected_df' not in st.session_state:
     st.session_state.selected_df = None
+    
+if 'selected_scenario' not in st.session_state:
+    st.session_state.selected_scenario = None
+    
+if 'optimization_results' not in st.session_state:
+    st.session_state.optimization_results = None
 
 if st.session_state.app_mode == 'input_repository':
     selected_file, df = input_repository_page()
@@ -56,7 +63,31 @@ if st.session_state.app_mode == 'input_repository':
     if selected_file is not None and df is not None:
         st.session_state.selected_file = selected_file
         st.session_state.selected_df = df
-        st.session_state.app_mode = 'optimization'
+        st.session_state.app_mode = 'scenario_management'
+        st.rerun()
+    
+    st.stop()
+
+if st.session_state.app_mode == 'scenario_management':
+    if st.session_state.selected_file is None:
+        st.error("No snapshot selected. Please select a snapshot first.")
+        st.session_state.app_mode = 'input_repository'
+        st.rerun()
+        
+    selected_scenario, run_optimization = scenario_management_ui(
+        snapshot_id=st.session_state.selected_file['filename'],
+        snapshot_name=st.session_state.selected_file['filename']
+    )
+    
+    if selected_scenario is not None:
+        st.session_state.selected_scenario = selected_scenario
+        
+        if run_optimization:
+            st.session_state.app_mode = 'optimization'
+            st.rerun()
+    
+    if st.button("Return to Input Repository"):
+        st.session_state.app_mode = 'input_repository'
         st.rerun()
     
     st.stop()
@@ -67,30 +98,55 @@ This app solves the Capacitated Vehicle Routing Problem (CVRP) using Google OR-T
 Configure the parameters and get optimized routes for your vehicles.
 """)
 
-if st.session_state.selected_file:
-    st.sidebar.success(f"Using file: {st.session_state.selected_file['filename']}")
+st.sidebar.header("Navigation")
+
+if st.sidebar.button("Return to Scenario Management"):
+    st.session_state.app_mode = 'scenario_management'
+    st.rerun()
     
-    if st.sidebar.button("Return to Input Repository"):
-        st.session_state.app_mode = 'input_repository'
-        st.rerun()
+if st.sidebar.button("Return to Input Repository"):
+    st.session_state.app_mode = 'input_repository'
+    st.rerun()
 
 st.sidebar.header("Parameters")
 
-vehicle_count = st.sidebar.number_input(
-    "Number of Vehicles",
-    min_value=1,
-    max_value=100,
-    value=5
-)
-
-vehicle_capacity = st.sidebar.number_input(
-    "Vehicle Capacity",
-    min_value=1,
-    max_value=10000,
-    value=100
-)
-
-use_sample_data = st.sidebar.checkbox("Use sample data")
+if st.session_state.selected_scenario:
+    scenario_config = st.session_state.selected_scenario['config']
+    
+    st.sidebar.success(f"Using scenario: {st.session_state.selected_scenario['scenario_name']}")
+    st.sidebar.info(f"Based on snapshot: {st.session_state.selected_scenario['snapshot_id']}")
+    
+    vehicle_count = st.sidebar.number_input(
+        "Number of Vehicles",
+        min_value=1,
+        max_value=100,
+        value=scenario_config['num_vehicles']
+    )
+    
+    vehicle_capacity = st.sidebar.number_input(
+        "Vehicle Capacity",
+        min_value=1,
+        max_value=10000,
+        value=scenario_config['vehicle_capacity']
+    )
+    
+    use_sample_data = False
+else:
+    vehicle_count = st.sidebar.number_input(
+        "Number of Vehicles",
+        min_value=1,
+        max_value=100,
+        value=5
+    )
+    
+    vehicle_capacity = st.sidebar.number_input(
+        "Vehicle Capacity",
+        min_value=1,
+        max_value=10000,
+        value=100
+    )
+    
+    use_sample_data = st.sidebar.checkbox("Use sample data")
 
 if st.session_state.selected_df is not None or use_sample_data:
     if use_sample_data:
@@ -385,6 +441,35 @@ if st.session_state.selected_df is not None or use_sample_data:
                             })
                     
                     detailed_df = pd.DataFrame(detailed_results)
+                    
+                    optimization_results = {
+                        'route_info': route_info,
+                        'kpi_df': kpi_df,
+                        'detailed_df': detailed_df,
+                        'vehicle_capacity': vehicle_capacity,
+                        'solution_data': solution_data
+                    }
+                    
+                    st.session_state.optimization_results = optimization_results
+                    
+                    if st.session_state.selected_scenario:
+                        scenario_id = st.session_state.selected_scenario['scenario_id']
+                        add_log_message(f"Updating results for scenario: {st.session_state.selected_scenario['scenario_name']}", "INFO")
+                        
+                        scenario_results = {
+                            'total_distance': total_distance,
+                            'total_customers': total_customers,
+                            'total_demand': total_demand,
+                            'capacity_utilization': capacity_utilization,
+                            'route_summary': route_summary,
+                            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        }
+                        
+                        update_success = update_scenario_results(scenario_id, scenario_results)
+                        if update_success:
+                            add_log_message("Scenario results updated successfully", "INFO")
+                        else:
+                            add_log_message("Failed to update scenario results", "WARNING")
                     
                     st.dataframe(detailed_df)
                     

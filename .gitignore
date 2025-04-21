@@ -1,3 +1,5 @@
 .streamlit/secrets.toml
 .data/inputs/*
 !.data/inputs/.gitkeep
+.data/scenarios/*
+!.data/scenarios/.gitkeep
