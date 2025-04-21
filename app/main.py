@@ -33,6 +33,7 @@ from utils import create_distance_matrix, get_download_link, create_folium_map, 
 from solver import solve_cvrp, get_route_info
 from nlp_processor import process_query
 from input_repository import input_repository_page
+from snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
 from scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
 
 logging.basicConfig(
@@ -51,6 +52,9 @@ if 'selected_file' not in st.session_state:
 if 'selected_df' not in st.session_state:
     st.session_state.selected_df = None
     
+if 'selected_snapshot' not in st.session_state:
+    st.session_state.selected_snapshot = None
+    
 if 'selected_scenario' not in st.session_state:
     st.session_state.selected_scenario = None
     
@@ -63,20 +67,41 @@ if st.session_state.app_mode == 'input_repository':
     if selected_file is not None and df is not None:
         st.session_state.selected_file = selected_file
         st.session_state.selected_df = df
-        st.session_state.app_mode = 'scenario_management'
+        st.session_state.app_mode = 'snapshot_management'
+        st.rerun()
+    
+    st.stop()
+
+if st.session_state.app_mode == 'snapshot_management':
+    if st.session_state.selected_file is None:
+        st.error("No input file selected. Please select an input file first.")
+        st.session_state.app_mode = 'input_repository'
+        st.rerun()
+        
+    selected_snapshot, create_scenario = snapshot_management_ui(st.session_state.selected_file)
+    
+    if selected_snapshot is not None:
+        st.session_state.selected_snapshot = selected_snapshot
+        
+        if create_scenario:
+            st.session_state.app_mode = 'scenario_management'
+            st.rerun()
+    
+    if st.button("Return to Input Repository"):
+        st.session_state.app_mode = 'input_repository'
         st.rerun()
     
     st.stop()
 
 if st.session_state.app_mode == 'scenario_management':
-    if st.session_state.selected_file is None:
+    if st.session_state.selected_snapshot is None:
         st.error("No snapshot selected. Please select a snapshot first.")
-        st.session_state.app_mode = 'input_repository'
+        st.session_state.app_mode = 'snapshot_management'
         st.rerun()
         
     selected_scenario, run_optimization = scenario_management_ui(
-        snapshot_id=st.session_state.selected_file['filename'],
-        snapshot_name=st.session_state.selected_file['filename']
+        snapshot_id=st.session_state.selected_snapshot['snapshot_id'],
+        snapshot_name=st.session_state.selected_snapshot['snapshot_name']
     )
     
     if selected_scenario is not None:
@@ -86,9 +111,15 @@ if st.session_state.app_mode == 'scenario_management':
             st.session_state.app_mode = 'optimization'
             st.rerun()
     
-    if st.button("Return to Input Repository"):
-        st.session_state.app_mode = 'input_repository'
-        st.rerun()
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Return to Snapshot Management"):
+            st.session_state.app_mode = 'snapshot_management'
+            st.rerun()
+    with col2:
+        if st.button("Return to Input Repository"):
+            st.session_state.app_mode = 'input_repository'
+            st.rerun()
     
     st.stop()
 
@@ -102,6 +133,10 @@ st.sidebar.header("Navigation")
 
 if st.sidebar.button("Return to Scenario Management"):
     st.session_state.app_mode = 'scenario_management'
+    st.rerun()
+    
+if st.sidebar.button("Return to Snapshot Management"):
+    st.session_state.app_mode = 'snapshot_management'
     st.rerun()
     
 if st.sidebar.button("Return to Input Repository"):
@@ -465,11 +500,15 @@ if st.session_state.selected_df is not None or use_sample_data:
                             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         }
                         
-                        update_success = update_scenario_results(scenario_id, scenario_results)
-                        if update_success:
-                            add_log_message("Scenario results updated successfully", "INFO")
-                        else:
-                            add_log_message("Failed to update scenario results", "WARNING")
+                        try:
+                            update_success = update_scenario_results(scenario_id, scenario_results)
+                            if update_success:
+                                add_log_message("Scenario results updated successfully", "INFO")
+                            else:
+                                add_log_message("Failed to update scenario results", "WARNING")
+                        except Exception as e:
+                            add_log_message(f"Error updating scenario results: {str(e)}", "ERROR")
+                            add_log_message(traceback.format_exc(), "ERROR")
                     
                     st.dataframe(detailed_df)
                     

@@ -33,7 +33,7 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
     Save a scenario configuration to a JSON file.
     
     Args:
-        snapshot_id: ID of the snapshot (input file) this scenario is based on
+        snapshot_id: ID of the snapshot this scenario is based on
         scenario_name: Name of the scenario
         num_vehicles: Number of vehicles for this scenario
         vehicle_capacity: Vehicle capacity for this scenario
@@ -45,7 +45,7 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
     if not scenario_name:
         scenario_name = f"scenario_{uuid.uuid4().hex[:8]}"
     
-    scenario_id = f"{snapshot_id.split('.')[0]}_{uuid.uuid4().hex[:8]}"
+    scenario_id = f"scenario_{uuid.uuid4().hex[:8]}"
     
     scenario_data = {
         "scenario_id": scenario_id,
@@ -94,6 +94,25 @@ def get_scenarios_for_snapshot(snapshot_id):
     scenarios.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     
     return scenarios
+
+def add_scenario_to_snapshot(snapshot_id, scenario_id):
+    """
+    Add a scenario ID to a snapshot's list of scenarios.
+    
+    Args:
+        snapshot_id: ID of the snapshot to update
+        scenario_id: ID of the scenario to add
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    from snapshot_manager import get_snapshot_by_id, update_snapshot_scenarios
+    
+    snapshot = get_snapshot_by_id(snapshot_id)
+    if not snapshot:
+        return False
+    
+    return update_snapshot_scenarios(snapshot_id, scenario_id)
 
 def get_scenario_by_id(scenario_id):
     """
@@ -201,6 +220,10 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                     vehicle_capacity=vehicle_capacity,
                     constraints=constraints if constraints else None
                 )
+                
+                # Add the scenario to the snapshot's list of scenarios
+                add_scenario_to_snapshot(snapshot_id, scenario_data["scenario_id"])
+                
                 st.success(f"Scenario '{scenario_data['scenario_name']}' saved successfully!")
                 st.rerun()
     
