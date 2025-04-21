@@ -150,7 +150,7 @@ if st.session_state.app_mode == 'chat_assistant':
         st.session_state.app_mode = 'snapshot_management'
         st.rerun()
     
-    st.switch_page("pages/02_Chat_Assistant")
+    st.switch_page("02_Chat_Assistant")
     st.stop()
 
 st.title("Capacitated Vehicle Routing Problem (CVRP) Solver")
