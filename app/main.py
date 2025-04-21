@@ -159,66 +159,44 @@ This app solves the Capacitated Vehicle Routing Problem (CVRP) using Google OR-T
 Configure the parameters and get optimized routes for your vehicles.
 """)
 
-st.sidebar.header("Navigation")
+st.markdown("### Navigation")
+col1, col2, col3 = st.columns(3)
 
-st.sidebar.markdown("### Go To")
-if st.sidebar.button("Input Repository", key="nav_input_repo"):
-    st.session_state.app_mode = 'input_repository'
-    st.rerun()
-
-if st.sidebar.button("Snapshot Management", key="nav_snapshot"):
-    if st.session_state.selected_file is not None:
-        st.session_state.app_mode = 'snapshot_management'
+with col1:
+    if st.button("Input Repository", key="nav_input_repo"):
+        st.session_state.app_mode = 'input_repository'
         st.rerun()
-    else:
-        st.sidebar.error("Please select an input file first")
 
-if st.sidebar.button("Scenario Management", key="nav_scenario"):
-    if st.session_state.selected_snapshot is not None:
-        st.session_state.app_mode = 'scenario_management'
-        st.rerun()
-    else:
-        st.sidebar.error("Please select a snapshot first")
+with col2:
+    if st.button("Snapshot Management", key="nav_snapshot"):
+        if st.session_state.selected_file is not None:
+            st.session_state.app_mode = 'snapshot_management'
+            st.rerun()
+        else:
+            st.error("Please select an input file first")
 
-st.sidebar.header("Parameters")
+with col3:
+    if st.button("Scenario Management", key="nav_scenario"):
+        if st.session_state.selected_snapshot is not None:
+            st.session_state.app_mode = 'scenario_management'
+            st.rerun()
+        else:
+            st.error("Please select a snapshot first")
+
 
 if st.session_state.selected_scenario:
     scenario_config = st.session_state.selected_scenario['config']
     
-    st.sidebar.success(f"Using scenario: {st.session_state.selected_scenario['scenario_name']}")
-    st.sidebar.info(f"Based on snapshot: {st.session_state.selected_scenario['snapshot_id']}")
+    st.success(f"Using scenario: {st.session_state.selected_scenario['scenario_name']}")
+    st.info(f"Based on snapshot: {st.session_state.selected_scenario['snapshot_id']}")
     
-    vehicle_count = st.sidebar.number_input(
-        "Number of Vehicles",
-        min_value=1,
-        max_value=100,
-        value=scenario_config['num_vehicles']
-    )
-    
-    vehicle_capacity = st.sidebar.number_input(
-        "Vehicle Capacity",
-        min_value=1,
-        max_value=10000,
-        value=scenario_config['vehicle_capacity']
-    )
-    
+    vehicle_count = scenario_config['num_vehicles']
+    vehicle_capacity = scenario_config['vehicle_capacity']
     use_sample_data = False
 else:
-    vehicle_count = st.sidebar.number_input(
-        "Number of Vehicles",
-        min_value=1,
-        max_value=100,
-        value=5
-    )
-    
-    vehicle_capacity = st.sidebar.number_input(
-        "Vehicle Capacity",
-        min_value=1,
-        max_value=10000,
-        value=100
-    )
-    
-    use_sample_data = st.sidebar.checkbox("Use sample data")
+    vehicle_count = 5
+    vehicle_capacity = 100
+    use_sample_data = False
 
 if st.session_state.selected_df is not None or use_sample_data:
     if use_sample_data:
