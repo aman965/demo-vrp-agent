@@ -4,7 +4,23 @@ import os
 import datetime
 import json
 import uuid
+import numpy as np
 from pathlib import Path
+
+class CustomJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder to handle non-serializable objects."""
+    def default(self, obj):
+        if isinstance(obj, pd.DataFrame):
+            return obj.to_dict(orient='records')
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if pd.isna(obj):
+            return None
+        return super().default(obj)
 
 def get_scenarios_dir():
     """Get the path to the scenarios directory, creating it if it doesn't exist."""
@@ -48,7 +64,7 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
     file_path = scenarios_dir / f"{scenario_id}.json"
     
     with open(file_path, "w") as f:
-        json.dump(scenario_data, f, indent=2)
+        json.dump(scenario_data, f, indent=2, cls=CustomJSONEncoder)
     
     return scenario_data
 
@@ -128,7 +144,7 @@ def update_scenario_results(scenario_id, results):
     
     try:
         with open(file_path, "w") as f:
-            json.dump(scenario_data, f, indent=2)
+            json.dump(scenario_data, f, indent=2, cls=CustomJSONEncoder)
         return True
     except Exception as e:
         st.error(f"Error updating scenario results: {str(e)}")
