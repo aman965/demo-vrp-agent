@@ -88,7 +88,8 @@ if (route_info is None or
     vehicle_capacity is None):
     st.warning("Incomplete optimization results. Please run optimization again.")
     if st.button("Return to Optimization Page"):
-        st.switch_page("main")
+        st.session_state.app_mode = 'optimization'
+        st.switch_page("main.py")
     st.stop()
 
 st.markdown("### Chat with VRP Assistant")
