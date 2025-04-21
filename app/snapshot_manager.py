@@ -244,7 +244,8 @@ def snapshot_management_ui(input_file):
             if st.button("Chat Assistant", key=f"chat_{snapshot['snapshot_id']}"):
                 st.session_state.selected_snapshot = snapshot
                 st.session_state.app_mode = 'chat_assistant'
-                st.rerun()
+                st.switch_page("pages/Chat_Assistant")
+                st.stop()
         
         with col4:
             if len(snapshot.get('scenarios', [])) >= 2:
@@ -284,7 +285,8 @@ def snapshot_management_ui(input_file):
         if st.button("Chat Assistant"):
             st.session_state.selected_snapshot = selected_snapshot
             st.session_state.app_mode = 'chat_assistant'
-            st.rerun()
+            st.switch_page("pages/Chat_Assistant")
+            st.stop()
     
     with col3:
         if scenario_count >= 2:
