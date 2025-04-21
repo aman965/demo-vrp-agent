@@ -57,7 +57,7 @@ if st.session_state.app_mode == 'input_repository':
         st.session_state.selected_file = selected_file
         st.session_state.selected_df = df
         st.session_state.app_mode = 'optimization'
-        st.experimental_rerun()
+        st.rerun()
     
     st.stop()
 
@@ -72,7 +72,7 @@ if st.session_state.selected_file:
     
     if st.sidebar.button("Return to Input Repository"):
         st.session_state.app_mode = 'input_repository'
-        st.experimental_rerun()
+        st.rerun()
 
 st.sidebar.header("Parameters")
 

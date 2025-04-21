@@ -123,7 +123,7 @@ def input_repository_page():
                     metadata = save_uploaded_file(uploaded_file, custom_name)
                     if metadata:
                         st.success(f"File saved as {metadata['filename']} with {metadata['row_count']} rows.")
-                        st.experimental_rerun()
+                        st.rerun()
     
     with col2:
         st.subheader("File Requirements")
