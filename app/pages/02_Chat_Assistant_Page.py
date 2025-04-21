@@ -150,7 +150,7 @@ if st.button("Send", on_click=process_user_query):
 
 if st.button("Return to Optimization Page"):
     st.session_state.app_mode = 'optimization'
-    st.switch_page("main")
+    st.rerun()
 
 with st.expander("Solver Log", expanded=False):
     log_text = "\n".join(st.session_state.log_messages) if 'log_messages' in st.session_state else ""
