@@ -11,7 +11,7 @@ import traceback
 import os
 
 API_KEY_AVAILABLE = False
-MODEL_NAME = "gpt-3.5-turbo"  # Default model
+MODEL_NAME = "gpt-4"  # Default model
 
 try:
     import openai
