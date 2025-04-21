@@ -1,0 +1,3 @@
+# Configure which pages are visible in the sidebar
+[pages]
+"Chat Assistant Page" = false
