@@ -63,16 +63,24 @@ def add_chat_message(role, content, metadata=None):
 
 st.title("VRP Assistant Chat")
 
-if 'optimization_results' not in st.session_state:
+if 'optimization_results' not in st.session_state or st.session_state.optimization_results is None:
     st.warning("No optimization results found. Please run optimization first.")
     if st.button("Return to Optimization Page"):
+        st.session_state.app_mode = 'optimization'
         st.switch_page("main")
     st.stop()
 
-route_info = st.session_state.optimization_results.get('route_info')
-kpi_df = st.session_state.optimization_results.get('kpi_df')
-detailed_df = st.session_state.optimization_results.get('detailed_df')
-vehicle_capacity = st.session_state.optimization_results.get('vehicle_capacity')
+try:
+    route_info = st.session_state.optimization_results.get('route_info')
+    kpi_df = st.session_state.optimization_results.get('kpi_df')
+    detailed_df = st.session_state.optimization_results.get('detailed_df')
+    vehicle_capacity = st.session_state.optimization_results.get('vehicle_capacity')
+except (AttributeError, TypeError) as e:
+    st.error(f"Error accessing optimization results: {str(e)}")
+    if st.button("Return to Main Page"):
+        st.session_state.app_mode = 'input_repository'
+        st.switch_page("main")
+    st.stop()
 
 if (route_info is None or 
     kpi_df is None or 
