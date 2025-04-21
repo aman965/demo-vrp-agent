@@ -6,6 +6,7 @@ import json
 import uuid
 import numpy as np
 from pathlib import Path
+import sys
 
 class CustomJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder to handle non-serializable objects."""
@@ -223,19 +224,42 @@ def snapshot_management_ui(input_file):
         st.info("No snapshots have been created yet for this input file. Create your first snapshot above.")
         return None, False
     
-    snapshots_df = pd.DataFrame([
-        {
-            "Snapshot Name": s["snapshot_name"],
-            "Created": s["created_at"],
-            "Scenarios": len(s.get("scenarios", [])),
-            "Description": s.get("description", "")
-        } for s in snapshots
-    ])
+    st.markdown("### Available Snapshots")
     
-    st.dataframe(snapshots_df, use_container_width=True)
+    for i, snapshot in enumerate(snapshots):
+        col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+        
+        with col1:
+            st.markdown(f"**{snapshot['snapshot_name']}**")
+            if snapshot.get("description"):
+                st.markdown(f"_{snapshot['description']}_")
+            st.caption(f"Created: {snapshot['created_at']} | Scenarios: {len(snapshot.get('scenarios', []))}")
+        
+        with col2:
+            if st.button("Manage Scenarios", key=f"manage_{snapshot['snapshot_id']}"):
+                st.session_state.selected_snapshot = snapshot
+                return snapshot, True
+        
+        with col3:
+            if st.button("Chat Assistant", key=f"chat_{snapshot['snapshot_id']}"):
+                st.session_state.selected_snapshot = snapshot
+                st.session_state.app_mode = 'chat_assistant'
+                st.rerun()
+        
+        with col4:
+            if len(snapshot.get('scenarios', [])) >= 2:
+                if st.button("Compare Scenarios", key=f"compare_{snapshot['snapshot_id']}"):
+                    st.session_state.selected_snapshot = snapshot
+                    st.session_state.app_mode = 'scenario_comparison'
+                    st.rerun()
+            else:
+                st.button("Compare Scenarios", key=f"compare_{snapshot['snapshot_id']}", disabled=True)
+        
+        st.markdown("---")
     
+    st.subheader("Select a Snapshot")
     selected_index = st.selectbox(
-        "Select a snapshot to use:",
+        "Choose a snapshot to work with:",
         options=range(len(snapshots)),
         format_func=lambda i: snapshots[i]["snapshot_name"]
     )
@@ -250,7 +274,25 @@ def snapshot_management_ui(input_file):
     scenario_count = len(selected_snapshot.get("scenarios", []))
     st.metric("Number of Scenarios", scenario_count)
     
-    if st.button("Manage Scenarios", type="primary"):
-        return selected_snapshot, True
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("Manage Scenarios", type="primary"):
+            return selected_snapshot, True
+    
+    with col2:
+        if st.button("Chat Assistant"):
+            st.session_state.selected_snapshot = selected_snapshot
+            st.session_state.app_mode = 'chat_assistant'
+            st.rerun()
+    
+    with col3:
+        if scenario_count >= 2:
+            if st.button("Compare Scenarios"):
+                st.session_state.selected_snapshot = selected_snapshot
+                st.session_state.app_mode = 'scenario_comparison'
+                st.rerun()
+        else:
+            st.button("Compare Scenarios", disabled=True)
     
     return None, False

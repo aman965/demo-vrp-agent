@@ -35,6 +35,7 @@ from nlp_processor import process_query
 from input_repository import input_repository_page
 from snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
 from scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
+from scenario_comparison import scenario_comparison_ui
 
 logging.basicConfig(
     level=logging.INFO,
@@ -123,6 +124,35 @@ if st.session_state.app_mode == 'scenario_management':
     
     st.stop()
 
+if st.session_state.app_mode == 'scenario_comparison':
+    if st.session_state.selected_snapshot is None:
+        st.error("No snapshot selected. Please select a snapshot first.")
+        st.session_state.app_mode = 'snapshot_management'
+        st.rerun()
+    
+    scenario_comparison_ui(
+        snapshot_id=st.session_state.selected_snapshot['snapshot_id'],
+        snapshot_name=st.session_state.selected_snapshot['snapshot_name']
+    )
+    
+    st.stop()
+
+if st.session_state.app_mode == 'chat_assistant':
+    if st.session_state.selected_snapshot is None:
+        st.error("No snapshot selected. Please select a snapshot first.")
+        st.session_state.app_mode = 'snapshot_management'
+        st.rerun()
+    
+    st.title(f"Chat Assistant for {st.session_state.selected_snapshot['snapshot_name']}")
+    st.markdown("Ask questions about scenarios in this snapshot or compare scenario results.")
+    
+    if st.button("Return to Snapshot Management"):
+        st.session_state.app_mode = 'snapshot_management'
+        st.rerun()
+    
+    st.switch_page("pages/02_Chat_Assistant")
+    st.stop()
+
 st.title("Capacitated Vehicle Routing Problem (CVRP) Solver")
 st.markdown("""
 This app solves the Capacitated Vehicle Routing Problem (CVRP) using Google OR-Tools.
@@ -131,17 +161,24 @@ Configure the parameters and get optimized routes for your vehicles.
 
 st.sidebar.header("Navigation")
 
-if st.sidebar.button("Return to Scenario Management"):
-    st.session_state.app_mode = 'scenario_management'
-    st.rerun()
-    
-if st.sidebar.button("Return to Snapshot Management"):
-    st.session_state.app_mode = 'snapshot_management'
-    st.rerun()
-    
-if st.sidebar.button("Return to Input Repository"):
+st.sidebar.markdown("### Go To")
+if st.sidebar.button("Input Repository", key="nav_input_repo"):
     st.session_state.app_mode = 'input_repository'
     st.rerun()
+
+if st.sidebar.button("Snapshot Management", key="nav_snapshot"):
+    if st.session_state.selected_file is not None:
+        st.session_state.app_mode = 'snapshot_management'
+        st.rerun()
+    else:
+        st.sidebar.error("Please select an input file first")
+
+if st.sidebar.button("Scenario Management", key="nav_scenario"):
+    if st.session_state.selected_snapshot is not None:
+        st.session_state.app_mode = 'scenario_management'
+        st.rerun()
+    else:
+        st.sidebar.error("Please select a snapshot first")
 
 st.sidebar.header("Parameters")
 
