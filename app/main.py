@@ -32,6 +32,7 @@ except ImportError:
 from utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
 from solver import solve_cvrp, get_route_info
 from nlp_processor import process_query
+from input_repository import input_repository_page
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,18 +41,40 @@ logging.basicConfig(
 )
 logger = logging.getLogger("CVRP-Solver")
 
+if 'app_mode' not in st.session_state:
+    st.session_state.app_mode = 'input_repository'
+
+if 'selected_file' not in st.session_state:
+    st.session_state.selected_file = None
+    
+if 'selected_df' not in st.session_state:
+    st.session_state.selected_df = None
+
+if st.session_state.app_mode == 'input_repository':
+    selected_file, df = input_repository_page()
+    
+    if selected_file is not None and df is not None:
+        st.session_state.selected_file = selected_file
+        st.session_state.selected_df = df
+        st.session_state.app_mode = 'optimization'
+        st.experimental_rerun()
+    
+    st.stop()
+
 st.title("Capacitated Vehicle Routing Problem (CVRP) Solver")
 st.markdown("""
 This app solves the Capacitated Vehicle Routing Problem (CVRP) using Google OR-Tools.
-Upload your customer data, set the parameters, and get optimized routes for your vehicles.
+Configure the parameters and get optimized routes for your vehicles.
 """)
 
-st.sidebar.header("Parameters")
+if st.session_state.selected_file:
+    st.sidebar.success(f"Using file: {st.session_state.selected_file['filename']}")
+    
+    if st.sidebar.button("Return to Input Repository"):
+        st.session_state.app_mode = 'input_repository'
+        st.experimental_rerun()
 
-uploaded_file = st.sidebar.file_uploader(
-    "Upload CSV file with customer data", 
-    type=["csv"]
-)
+st.sidebar.header("Parameters")
 
 vehicle_count = st.sidebar.number_input(
     "Number of Vehicles",
@@ -69,7 +92,7 @@ vehicle_capacity = st.sidebar.number_input(
 
 use_sample_data = st.sidebar.checkbox("Use sample data")
 
-if uploaded_file is not None or use_sample_data:
+if st.session_state.selected_df is not None or use_sample_data:
     if use_sample_data:
         data = {
             'CustomerID': ['Depot'] + [f'C{i}' for i in range(1, 21)],
@@ -80,7 +103,7 @@ if uploaded_file is not None or use_sample_data:
         df = pd.DataFrame(data)
         st.info("Using sample data with random coordinates around New York City.")
     else:
-        df = pd.read_csv(uploaded_file)
+        df = st.session_state.selected_df
         
         required_columns = ['CustomerID', 'Latitude', 'Longitude', 'Demand']
         if not all(col in df.columns for col in required_columns):
