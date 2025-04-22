@@ -159,24 +159,21 @@ This app solves the Capacitated Vehicle Routing Problem (CVRP) using Google OR-T
 Configure the parameters and get optimized routes for your vehicles.
 """)
 
-st.markdown("### Navigation")
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    if st.button("Input Repository", key="nav_input_repo"):
+with st.sidebar:
+    st.markdown("### Navigation")
+    
+    if st.button("Input Repository", key="nav_input_repo", use_container_width=True):
         st.session_state.app_mode = 'input_repository'
         st.rerun()
-
-with col2:
-    if st.button("Snapshot Management", key="nav_snapshot"):
+    
+    if st.button("Snapshot Management", key="nav_snapshot", use_container_width=True):
         if st.session_state.selected_file is not None:
             st.session_state.app_mode = 'snapshot_management'
             st.rerun()
         else:
             st.error("Please select an input file first")
-
-with col3:
-    if st.button("Scenario Management", key="nav_scenario"):
+    
+    if st.button("Scenario Management", key="nav_scenario", use_container_width=True):
         if st.session_state.selected_snapshot is not None:
             st.session_state.app_mode = 'scenario_management'
             st.rerun()
