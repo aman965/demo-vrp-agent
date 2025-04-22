@@ -285,3 +285,71 @@ def ensure_dataframe(data):
         return data
     else:
         return pd.DataFrame()
+
+
+def save_dataframe(df, path, format="csv"):
+    """Save DataFrame to file with specified format"""
+    if df is None or df.empty:
+        return None
+        
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    
+    if format.lower() == "csv":
+        df.to_csv(path, index=False)
+    elif format.lower() == "parquet":
+        try:
+            df.to_parquet(path, index=False)
+        except Exception as e:
+            add_log_message(f"Error saving parquet: {str(e)}", "ERROR")
+            csv_path = path.replace(".parquet", ".csv")
+            df.to_csv(csv_path, index=False)
+            return csv_path
+    
+    return path
+
+
+def load_dataframe(path, format=None):
+    """Load DataFrame from file with auto-detection of format"""
+    if not os.path.exists(path):
+        return None
+        
+    if format is None:
+        if path.endswith(".csv"):
+            format = "csv"
+        elif path.endswith(".parquet"):
+            format = "parquet"
+        else:
+            format = "csv"  # Default
+    
+    try:
+        if format.lower() == "csv":
+            return pd.read_csv(path)
+        elif format.lower() == "parquet":
+            return pd.read_parquet(path)
+    except Exception as e:
+        add_log_message(f"Error loading dataframe from {path}: {str(e)}", "ERROR")
+        return None
+
+
+def validate_scenario_schema(scenario_data):
+    """Validate scenario data schema"""
+    required_fields = ["scenario_id", "scenario_name", "snapshot_id", "config"]
+    
+    for field in required_fields:
+        if field not in scenario_data:
+            add_log_message(f"Missing required field in scenario: {field}", "ERROR")
+            return False
+    
+    if "config" in scenario_data:
+        config = scenario_data["config"]
+        if not isinstance(config, dict):
+            add_log_message("Config must be a dictionary", "ERROR")
+            return False
+            
+        required_config = ["num_vehicles", "vehicle_capacity"]
+        for field in required_config:
+            if field not in config:
+                add_log_message(f"Missing required config field: {field}", "ERROR")
+                return False
+    
+    return True
