@@ -24,4 +24,4 @@ st.markdown("This page is used for initialization purposes only.")
 st.markdown("Please navigate to the main page to use the application.")
 
 if st.button("Go to Main Page"):
-    st.switch_page("../../main.py")
+    st.switch_page("main.py")
