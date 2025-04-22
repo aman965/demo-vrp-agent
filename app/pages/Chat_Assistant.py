@@ -118,7 +118,34 @@ try:
     route_info = optimization_results.get('route_info')
     kpi_df = optimization_results.get('kpi_df')
     detailed_df = optimization_results.get('detailed_df')
-    vehicle_capacity = selected_scenario['config']['vehicle_capacity']
+    vehicle_capacity = selected_scenario['config'].get('vehicle_capacity')
+    
+    if route_info is None and 'route_summary' in optimization_results:
+        route_summary = optimization_results.get('route_summary', [])
+        if route_summary:
+            add_log_message("Reconstructing route_info from route_summary", "INFO")
+            route_info = []
+            for idx, route in enumerate(route_summary):
+                vehicle_id = int(route['Vehicle'].replace('Vehicle ', '')) if isinstance(route['Vehicle'], str) else idx + 1
+                route_info.append({
+                    'vehicle_id': vehicle_id,
+                    'stops': [],  # We don't have detailed stop information
+                    'total_distance': route.get('Total Distance (km)', 0),
+                    'total_demand': route.get('Total Demand', 0),
+                    'route_text': f"Vehicle {vehicle_id}: Depot → ... → Depot"
+                })
+    
+    if (kpi_df is None or (isinstance(kpi_df, pd.DataFrame) and kpi_df.empty)) and route_info:
+        add_log_message("Reconstructing kpi_df from route_info", "INFO")
+        kpi_data = []
+        for r in route_info:
+            kpi_data.append({
+                'Vehicle': f"Vehicle {r['vehicle_id']}",
+                'Distance (km)': r.get('total_distance', 0),
+                'Demand': r.get('total_demand', 0),
+                'Capacity Utilization (%)': r.get('total_demand', 0) / vehicle_capacity * 100 if vehicle_capacity else 0
+            })
+        kpi_df = pd.DataFrame(kpi_data)
     
     if isinstance(kpi_df, dict) and 'records' in kpi_df:
         kpi_df = pd.DataFrame.from_records(kpi_df['records'])
@@ -129,6 +156,11 @@ try:
         detailed_df = pd.DataFrame.from_records(detailed_df['records'])
     elif isinstance(detailed_df, list):
         detailed_df = pd.DataFrame(detailed_df)
+    
+    if vehicle_capacity is None:
+        vehicle_capacity = optimization_results.get('vehicle_capacity')
+        if vehicle_capacity is None and 'config' in selected_scenario:
+            vehicle_capacity = selected_scenario['config'].get('vehicle_capacity', 100)  # Default to 100
         
 except (AttributeError, TypeError, KeyError) as e:
     st.error(f"Error accessing scenario results: {str(e)}")
@@ -139,8 +171,7 @@ except (AttributeError, TypeError, KeyError) as e:
     st.stop()
 
 if (route_info is None or 
-    kpi_df is None or 
-    isinstance(kpi_df, pd.DataFrame) and kpi_df.empty or 
+    (kpi_df is None or (isinstance(kpi_df, pd.DataFrame) and kpi_df.empty)) or 
     vehicle_capacity is None):
     st.warning("Incomplete optimization results for this scenario. Please run optimization again.")
     if st.button("Return to Scenario Management"):
