@@ -8,4 +8,4 @@ streamlit-folium==0.15.0
 openpyxl==3.1.2
 openai==1.12.0
 matplotlib==3.8.2
-# Force rebuild - Updated CSS selector to better target unwanted sidebar items
+# Force rebuild - Updated pages.toml to match hidden page filenames
