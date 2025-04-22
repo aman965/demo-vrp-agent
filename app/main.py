@@ -169,6 +169,39 @@ if st.session_state.app_mode == 'scenario_management':
     st.stop()
 
 if st.session_state.app_mode == 'view_results':
+    st.title("Optimization Results")
+
+    if st.session_state.selected_scenario is None:
+        st.error("No scenario selected to view results.")
+        st.session_state.app_mode = 'scenario_management'
+        st.switch_page("main.py")
+        st.stop()
+    
+    results = st.session_state.selected_scenario.get("optimization_results", None)
+    
+    if not results:
+        st.warning("No saved optimization results found for this scenario.")
+        st.session_state.app_mode = 'scenario_management'
+        st.switch_page("main.py")
+        st.stop()
+    
+    st.success(f"Results for: {st.session_state.selected_scenario['scenario_name']}")
+    
+    st.metric("Total Distance (km)", f"{results['total_distance']:.2f}")
+    st.metric("Total Demand Delivered", results['total_demand'])
+    st.metric("Capacity Utilization", f"{results['capacity_utilization']:.2f}%")
+    
+    st.markdown("### Route Summary")
+    st.dataframe(pd.DataFrame(results['route_summary']))
+    
+    st.markdown("Return to [Scenario Management](main.py) to re-run or select another.")
+    
+    if st.button("Back to Scenarios"):
+        st.session_state.app_mode = 'scenario_management'
+        st.switch_page("main.py")
+    
+    st.stop()
+
     if st.session_state.selected_scenario is None:
         st.error("No scenario selected. Please select a scenario first.")
         st.session_state.app_mode = 'scenario_management'
