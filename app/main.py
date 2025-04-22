@@ -25,8 +25,9 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    [data-testid="stSidebar"] ul li:has(a:contains("hidden chat")),
-    [data-testid="stSidebar"] ul li:has(a:contains("init")) {
+    /* Hide unwanted pages from sidebar */
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] div:nth-child(1) ul li:nth-child(2),
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] div:nth-child(1) ul li:nth-child(3) {
         display: none !important;
     }
     </style>
