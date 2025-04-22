@@ -57,7 +57,7 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
             "vehicle_capacity": vehicle_capacity
         },
         "constraints": constraints,
-        "results": None
+        "optimization_results": None
     }
     
     scenarios_dir = get_scenarios_dir()
@@ -153,10 +153,7 @@ def update_scenario_results(scenario_id, results):
     if not scenario_data:
         return False
     
-    scenario_data["results"] = {
-        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "data": results
-    }
+    scenario_data["optimization_results"] = results
     
     scenarios_dir = get_scenarios_dir()
     file_path = scenarios_dir / f"{scenario_id}.json"
@@ -277,7 +274,7 @@ def scenario_management_ui(snapshot_id, snapshot_name):
     if selected_scenario.get("constraints"):
         st.markdown(f"**Constraints:** {selected_scenario['constraints']}")
     
-    has_results = selected_scenario.get("results") is not None
+    has_results = selected_scenario.get("optimization_results") is not None
     
     if has_results:
         st.success("This scenario has been run. You can view the results or run it again.")
