@@ -84,6 +84,9 @@ if 'selected_snapshot' not in st.session_state or st.session_state.selected_snap
         st.switch_page("main.py")
     st.stop()
 
+if 'app_mode' not in st.session_state:
+    st.session_state.app_mode = 'chat_assistant'
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 try:
     from ..scenario_manager import get_scenarios_for_snapshot, get_scenario_by_id

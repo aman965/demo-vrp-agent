@@ -14,7 +14,7 @@ import logging
 import sys
 import uuid
 import json
-from utils import safe_get_dataframe_value, ensure_dataframe, add_log_message
+from utils import safe_get_dataframe_value, ensure_dataframe, add_log_message, get_input_file_path_by_id
 
 st.set_page_config(
     page_title="Vehicle Routing Problem Solver",
@@ -174,10 +174,20 @@ if st.session_state.app_mode == 'view_results':
         st.session_state.app_mode = 'scenario_management'
         st.switch_page("main.py")
     
+    from scenario_manager import get_scenario_by_id
+    scenario_id = st.session_state.selected_scenario.get('scenario_id')
+    if scenario_id:
+        fresh_scenario = get_scenario_by_id(scenario_id)
+        if fresh_scenario:
+            st.session_state.selected_scenario = fresh_scenario
+            st.session_state.optimization_results = fresh_scenario.get('optimization_results', {})
+            add_log_message(f"Loaded optimization results from disk for scenario {fresh_scenario.get('scenario_name')}")
+    
     st.title("Scenario Results")
     st.success(f"Viewing results for scenario: {st.session_state.selected_scenario['scenario_name']}")
     
-    scenario_results = st.session_state.selected_scenario.get('optimization_results')
+    scenario_results = st.session_state.optimization_results
+    
     if not scenario_results:
         st.error("No results found for this scenario.")
         if st.button("Return to Scenario Management"):
@@ -185,24 +195,78 @@ if st.session_state.app_mode == 'view_results':
             st.switch_page("main.py")
         st.stop()
     
+    route_info = scenario_results.get('route_info')
+    solution_data = scenario_results.get('solution_data')
+    kpi_df = scenario_results.get('kpi_df')
+    detailed_df = scenario_results.get('detailed_df')
+    
+    kpi_df = ensure_dataframe(kpi_df)
+    detailed_df = ensure_dataframe(detailed_df)
+    
+    vehicle_capacity = None
+    if 'config' in st.session_state.selected_scenario and 'vehicle_capacity' in st.session_state.selected_scenario['config']:
+        vehicle_capacity = st.session_state.selected_scenario['config']['vehicle_capacity']
+    elif 'vehicle_capacity' in scenario_results:
+        vehicle_capacity = scenario_results['vehicle_capacity']
+    
+    if not vehicle_capacity:
+        st.warning("Vehicle capacity not found in scenario config or optimization results.")
+        vehicle_capacity = 100  # Default value
+    
+    total_distance = scenario_results.get("total_distance", 0)
+    total_customers = scenario_results.get("total_customers", 0)
+    total_demand = scenario_results.get("total_demand", 0)
+    capacity_utilization = scenario_results.get("capacity_utilization", 0)
+    
+    route_summary = scenario_results.get("route_summary", [])
+    
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total Distance (km)", f"{scenario_results.get('total_distance', 0):.2f}")
+        st.metric("Total Distance (km)", f"{total_distance:.2f}")
     with col2:
-        st.metric("Total Customers Served", scenario_results.get('total_customers', 0))
+        st.metric("Total Customers Served", total_customers)
     with col3:
-        st.metric("Total Demand Delivered", scenario_results.get('total_demand', 0))
+        st.metric("Total Demand Delivered", total_demand)
     with col4:
-        st.metric("Capacity Utilization", f"{scenario_results.get('capacity_utilization', 0):.2f}%")
+        st.metric("Capacity Utilization", f"{capacity_utilization:.2f}%")
+    
+    # If route_summary is not available, generate it from route_info
+    if not route_summary and route_info:
+        route_summary = []
+        for route in route_info:
+            route_summary.append({
+                'Vehicle': f"Vehicle {route['vehicle_id']}",
+                'Stops': len(route['stops']) if 'stops' in route else 0,
+                'Total Distance (km)': round(route['total_distance'], 2),
+                'Total Demand': route['total_demand'],
+                'Capacity Utilization (%)': round(route['total_demand'] / vehicle_capacity * 100, 2)
+            })
     
     st.subheader("Route Summary")
-    if 'route_summary' in scenario_results:
-        route_summary_df = pd.DataFrame(scenario_results['route_summary'])
-        st.dataframe(route_summary_df)
+    if route_summary:
+        route_df = pd.DataFrame(route_summary)
+        st.dataframe(route_df)
     
-    if st.button("Return to Scenario Management"):
-        st.session_state.app_mode = 'scenario_management'
-        st.switch_page("main.py")
+    if route_info:
+        st.markdown("### Route Paths")
+        for route in route_info:
+            if 'route_text' in route:
+                st.markdown(f"**{route['route_text']}**")
+            elif 'stops' in route:
+                stops = [stop['customer_id'] for stop in route['stops']] if 'stops' in route else []
+                stops_str = "Depot → " + " → ".join(stops) + " → Depot" if stops else "Depot → Depot"
+                st.markdown(f"**Vehicle {route['vehicle_id']}: {stops_str}**")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Return to Scenario Management"):
+            st.session_state.app_mode = 'scenario_management'
+            st.switch_page("main.py")
+    
+    with col2:
+        if st.button("Chat with Assistant"):
+            st.session_state.app_mode = 'chat_assistant'
+            st.switch_page("pages/Chat_Assistant.py")
     
     st.stop()
 
@@ -219,11 +283,69 @@ if st.session_state.app_mode == 'scenario_comparison':
     
     st.stop()
 
+if st.session_state.app_mode == 'optimization':
+    if st.session_state.selected_scenario is None:
+        st.error("No scenario selected. Please select a scenario first.")
+        st.session_state.app_mode = 'scenario_management'
+        st.switch_page("main.py")
+    
+    from scenario_manager import get_scenario_by_id
+    scenario_id = st.session_state.selected_scenario.get('scenario_id')
+    if scenario_id:
+        fresh_scenario = get_scenario_by_id(scenario_id)
+        if fresh_scenario:
+            st.session_state.selected_scenario = fresh_scenario
+            if ('optimization_results' not in st.session_state or not st.session_state.optimization_results) and 'optimization_results' in fresh_scenario:
+                st.session_state.optimization_results = fresh_scenario.get('optimization_results', {})
+                add_log_message(f"Loaded optimization results from disk for scenario {fresh_scenario.get('scenario_name')}")
+    
+    if 'optimization_results' in st.session_state and st.session_state.optimization_results:
+        add_log_message("Using existing optimization results from session state")
+        st.session_state.app_mode = 'view_results'
+        st.switch_page("main.py")
+        st.stop()
+    
+    add_log_message("No existing results found, running new optimization")
+    
+    input_file_id = st.session_state.selected_scenario['snapshot_id']
+    input_file_path = get_input_file_path_by_id(input_file_id)
+    
+    if not input_file_path or not os.path.exists(input_file_path):
+        st.error(f"Input file not found for snapshot ID: {input_file_id}")
+        if st.button("Return to Scenario Management"):
+            st.session_state.app_mode = 'scenario_management'
+            st.switch_page("main.py")
+        st.stop()
+    
+    try:
+        df = pd.read_csv(input_file_path)
+        st.write(f"Loaded input data with {len(df)} rows")
+    except Exception as e:
+        st.error(f"Error loading input data: {str(e)}")
+        if st.button("Return to Scenario Management"):
+            st.session_state.app_mode = 'scenario_management'
+            st.switch_page("main.py")
+        st.stop()
+    
+    vehicle_count = st.session_state.selected_scenario['config']['num_vehicles']
+    vehicle_capacity = st.session_state.selected_scenario['config']['vehicle_capacity']
+    
+    st.session_state.selected_df = df
+    
+
 if st.session_state.app_mode == 'chat_assistant':
     if st.session_state.selected_snapshot is None:
         st.error("No snapshot selected. Please select a snapshot first.")
         st.session_state.app_mode = 'snapshot_management'
         st.switch_page("main.py")
+    
+    from snapshot_manager import get_snapshot_by_id
+    snapshot_id = st.session_state.selected_snapshot.get('snapshot_id')
+    if snapshot_id:
+        fresh_snapshot = get_snapshot_by_id(snapshot_id)
+        if fresh_snapshot:
+            st.session_state.selected_snapshot = fresh_snapshot
+            add_log_message(f"Loaded fresh snapshot data for {fresh_snapshot.get('snapshot_name')}")
     
     st.title(f"Chat Assistant for {st.session_state.selected_snapshot['snapshot_name']}")
     st.markdown("Ask questions about scenarios in this snapshot or compare scenario results.")
@@ -232,7 +354,6 @@ if st.session_state.app_mode == 'chat_assistant':
         st.session_state.app_mode = 'snapshot_management'
         st.switch_page("main.py")
     
-    st.session_state.app_mode = 'chat_assistant'
     st.switch_page("pages/Chat_Assistant.py")
     st.stop()
 

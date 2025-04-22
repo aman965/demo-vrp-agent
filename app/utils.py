@@ -353,3 +353,30 @@ def validate_scenario_schema(scenario_data):
                 return False
     
     return True
+
+
+def get_input_file_path_by_id(snapshot_id):
+    """Get the input file path for a snapshot ID"""
+    from snapshot_manager import get_snapshot_by_id
+    
+    snapshot = get_snapshot_by_id(snapshot_id)
+    if not snapshot:
+        add_log_message(f"Snapshot not found: {snapshot_id}", "ERROR")
+        return None
+    
+    input_file_id = snapshot.get('input_file_id')
+    if not input_file_id:
+        add_log_message(f"Input file ID not found in snapshot: {snapshot_id}", "ERROR")
+        return None
+    
+    from input_repository import get_input_repository_dir
+    
+    input_dir = get_input_repository_dir()
+    input_files = [f for f in os.listdir(input_dir) if f.endswith('.csv')]
+    
+    for file_name in input_files:
+        if input_file_id in file_name:
+            return os.path.join(input_dir, file_name)
+    
+    add_log_message(f"Input file not found for ID: {input_file_id}", "ERROR")
+    return None
