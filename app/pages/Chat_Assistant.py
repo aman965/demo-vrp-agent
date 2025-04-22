@@ -88,7 +88,7 @@ snapshot = st.session_state.selected_snapshot
 st.markdown(f"### Analyzing Scenarios for Snapshot: **{snapshot['snapshot_name']}**")
 
 scenarios = get_scenarios_for_snapshot(snapshot['snapshot_id'])
-scenarios_with_results = [s for s in scenarios if s.get('results') is not None]
+scenarios_with_results = [s for s in scenarios if s.get('optimization_results') is not None]
 
 if not scenarios_with_results:
     st.warning("No scenarios with results found for this snapshot. Please run optimization for at least one scenario first.")
@@ -107,7 +107,7 @@ selected_scenario = scenarios_with_results[selected_scenario_index]
 add_log_message(f"Selected scenario: {selected_scenario['scenario_name']}")
 
 try:
-    optimization_results = selected_scenario.get('results', {}).get('data', {})
+    optimization_results = selected_scenario.get('optimization_results', {})
     
     route_info = optimization_results.get('route_info')
     kpi_df = optimization_results.get('kpi_df')
