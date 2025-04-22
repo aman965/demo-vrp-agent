@@ -9,7 +9,7 @@ from io import StringIO
 import re
 import traceback
 import os
-from app.utils import get_openai_config, get_openai_api_key, add_log_message, safe_get_dataframe_value, ensure_dataframe
+from utils import get_openai_config, get_openai_api_key, add_log_message, safe_get_dataframe_value, ensure_dataframe
 
 API_KEY_AVAILABLE = False
 openai_config = get_openai_config()
