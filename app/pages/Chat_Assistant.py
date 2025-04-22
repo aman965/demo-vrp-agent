@@ -74,22 +74,61 @@ def add_chat_message(role, content, metadata=None):
 
 st.title("VRP Assistant Chat")
 
-if 'optimization_results' not in st.session_state or st.session_state.optimization_results is None:
-    st.warning("No optimization results found. Please run optimization first.")
-    if st.button("Return to Optimization Page"):
-        st.session_state.app_mode = 'optimization'
+if 'selected_snapshot' not in st.session_state or st.session_state.selected_snapshot is None:
+    st.warning("No snapshot selected. Please select a snapshot first.")
+    if st.button("Return to Input Repository"):
+        st.session_state.app_mode = 'input_repository'
         st.switch_page("../../main.py")
     st.stop()
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from app.scenario_manager import get_scenarios_for_snapshot, get_scenario_by_id
+
+snapshot = st.session_state.selected_snapshot
+st.markdown(f"### Analyzing Scenarios for Snapshot: **{snapshot['snapshot_name']}**")
+
+scenarios = get_scenarios_for_snapshot(snapshot['snapshot_id'])
+scenarios_with_results = [s for s in scenarios if s.get('results') is not None]
+
+if not scenarios_with_results:
+    st.warning("No scenarios with results found for this snapshot. Please run optimization for at least one scenario first.")
+    if st.button("Return to Scenario Management"):
+        st.session_state.app_mode = 'scenario_management'
+        st.switch_page("../../main.py")
+    st.stop()
+
+selected_scenario_index = st.selectbox(
+    "Select a scenario to analyze:",
+    options=range(len(scenarios_with_results)),
+    format_func=lambda i: scenarios_with_results[i]["scenario_name"]
+)
+
+selected_scenario = scenarios_with_results[selected_scenario_index]
+add_log_message(f"Selected scenario: {selected_scenario['scenario_name']}")
+
 try:
-    route_info = st.session_state.optimization_results.get('route_info')
-    kpi_df = st.session_state.optimization_results.get('kpi_df')
-    detailed_df = st.session_state.optimization_results.get('detailed_df')
-    vehicle_capacity = st.session_state.optimization_results.get('vehicle_capacity')
-except (AttributeError, TypeError) as e:
-    st.error(f"Error accessing optimization results: {str(e)}")
-    if st.button("Return to Main Page"):
-        st.session_state.app_mode = 'input_repository'
+    optimization_results = selected_scenario.get('results', {}).get('data', {})
+    
+    route_info = optimization_results.get('route_info')
+    kpi_df = optimization_results.get('kpi_df')
+    detailed_df = optimization_results.get('detailed_df')
+    vehicle_capacity = selected_scenario['config']['vehicle_capacity']
+    
+    if isinstance(kpi_df, dict) and 'records' in kpi_df:
+        kpi_df = pd.DataFrame.from_records(kpi_df['records'])
+    elif isinstance(kpi_df, list):
+        kpi_df = pd.DataFrame(kpi_df)
+        
+    if isinstance(detailed_df, dict) and 'records' in detailed_df:
+        detailed_df = pd.DataFrame.from_records(detailed_df['records'])
+    elif isinstance(detailed_df, list):
+        detailed_df = pd.DataFrame(detailed_df)
+        
+except (AttributeError, TypeError, KeyError) as e:
+    st.error(f"Error accessing scenario results: {str(e)}")
+    add_log_message(f"Error accessing scenario results: {str(e)}", "ERROR")
+    if st.button("Return to Scenario Management"):
+        st.session_state.app_mode = 'scenario_management'
         st.switch_page("../../main.py")
     st.stop()
 
@@ -97,9 +136,9 @@ if (route_info is None or
     kpi_df is None or 
     isinstance(kpi_df, pd.DataFrame) and kpi_df.empty or 
     vehicle_capacity is None):
-    st.warning("Incomplete optimization results. Please run optimization again.")
-    if st.button("Return to Optimization Page"):
-        st.session_state.app_mode = 'optimization'
+    st.warning("Incomplete optimization results for this scenario. Please run optimization again.")
+    if st.button("Return to Scenario Management"):
+        st.session_state.app_mode = 'scenario_management'
         st.switch_page("../../main.py")
     st.stop()
 
@@ -129,12 +168,15 @@ def process_user_query():
         add_log_message(f"Processing chat query: '{query}'", "INFO")
         
         try:
+            scenario_context = f"Analyzing scenario: {selected_scenario['scenario_name']}"
+            
             result = process_query(
                 query=query,
                 route_info=route_info,
                 kpi_df=kpi_df,
                 detailed_df=detailed_df,
-                vehicle_capacity=vehicle_capacity
+                vehicle_capacity=vehicle_capacity,
+                context=scenario_context
             )
             
             add_log_message(f"Query processed with intent: {result['intent']}", "INFO")
@@ -159,9 +201,15 @@ query_input = st.text_input("Type your message here:", key="query_input")
 if st.button("Send", on_click=process_user_query):
     pass
 
-if st.button("Return to Optimization Page"):
-    st.session_state.app_mode = 'optimization'
-    st.switch_page("../../main.py")
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("Return to Scenario Management"):
+        st.session_state.app_mode = 'scenario_management'
+        st.switch_page("../../main.py")
+with col2:
+    if st.button("Return to Input Repository"):
+        st.session_state.app_mode = 'input_repository'
+        st.switch_page("../../main.py")
 
 with st.expander("Solver Log", expanded=False):
     log_text = "\n".join(st.session_state.log_messages) if 'log_messages' in st.session_state else ""

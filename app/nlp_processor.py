@@ -48,7 +48,7 @@ if not API_KEY_AVAILABLE and openai is not None:
         st.error(f"Error accessing environment variables: {str(e)}")
         API_KEY_AVAILABLE = False
 
-def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
+def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity, context=None):
     """
     Process a natural language query about the VRP solution using a context-aware approach
     
@@ -58,6 +58,7 @@ def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
         kpi_df: DataFrame with KPI information
         detailed_df: DataFrame with detailed route information
         vehicle_capacity: The capacity of each vehicle
+        context: Additional context information about the scenario (optional)
         
     Returns:
         dict: Contains response text, visualization (if any), and intent information
@@ -70,11 +71,14 @@ def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity):
         }
     
     try:
-        context = prepare_context(route_info, kpi_df, detailed_df, vehicle_capacity)
+        prepared_context = prepare_context(route_info, kpi_df, detailed_df, vehicle_capacity)
         
-        response_data = query_gpt_with_context(query, context)
+        if context:
+            prepared_context['additional_context'] = context
         
-        return process_gpt_response(response_data, kpi_df, detailed_df, context['route_info'], context['vehicle_capacity'])
+        response_data = query_gpt_with_context(query, prepared_context)
+        
+        return process_gpt_response(response_data, kpi_df, detailed_df, prepared_context['route_info'], prepared_context['vehicle_capacity'])
         
     except Exception as e:
         return {
@@ -155,6 +159,8 @@ def query_gpt_with_context(query, context):
         4. Configuration:
         - Vehicle Capacity: {context['vehicle_capacity']}
         - Number of Vehicles: {context['num_vehicles']}
+        
+        {f"5. Additional Context:\n{context['additional_context']}" if 'additional_context' in context else ""}
         
         YOUR TASK:
         Answer the user's query about the optimization results. If the query requires calculations or data extraction,
