@@ -26,8 +26,8 @@ st.markdown(
     """
     <style>
     /* Hide unwanted pages from sidebar */
-    [data-testid="stSidebar"] ul li:has(a[href*="hidden_chat"]),
-    [data-testid="stSidebar"] ul li:has(a[href*="init"]) {
+    [data-testid="stSidebar"] ul li:has(a[href*="_hidden_chat"]),
+    [data-testid="stSidebar"] ul li:has(a[href*="_init"]) {
         display: none !important;
     }
     
