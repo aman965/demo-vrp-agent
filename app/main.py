@@ -80,6 +80,9 @@ if 'selected_scenario' not in st.session_state:
     
 if 'optimization_results' not in st.session_state:
     st.session_state.optimization_results = None
+    
+if 'view_scenario_results' not in st.session_state:
+    st.session_state.view_scenario_results = None
 
 with st.sidebar:
     st.markdown("### Navigation")
@@ -151,6 +154,20 @@ if st.session_state.app_mode == 'scenario_management':
         if run_optimization:
             st.session_state.app_mode = 'optimization'
             st.switch_page("main.py")
+        
+        if hasattr(st.session_state, 'view_scenario_results') and st.session_state.view_scenario_results:
+            scenario_id = st.session_state.view_scenario_results
+            from scenario_manager import get_scenario_by_id
+            scenario = get_scenario_by_id(scenario_id)
+            
+            if scenario and scenario.get('optimization_results'):
+                st.session_state.selected_scenario = scenario
+                st.session_state.app_mode = 'view_results'
+                st.session_state.view_scenario_results = None  # Reset after use
+                st.switch_page("main.py")
+            else:
+                st.error(f"Could not find results for scenario {scenario_id}")
+                st.session_state.view_scenario_results = None
     
     col1, col2 = st.columns(2)
     with col1:
@@ -161,6 +178,44 @@ if st.session_state.app_mode == 'scenario_management':
         if st.button("Return to Input Repository"):
             st.session_state.app_mode = 'input_repository'
             st.switch_page("main.py")
+    
+    st.stop()
+
+if st.session_state.app_mode == 'view_results':
+    if st.session_state.selected_scenario is None:
+        st.error("No scenario selected. Please select a scenario first.")
+        st.session_state.app_mode = 'scenario_management'
+        st.switch_page("main.py")
+    
+    st.title("Scenario Results")
+    st.success(f"Viewing results for scenario: {st.session_state.selected_scenario['scenario_name']}")
+    
+    scenario_results = st.session_state.selected_scenario.get('optimization_results')
+    if not scenario_results:
+        st.error("No results found for this scenario.")
+        if st.button("Return to Scenario Management"):
+            st.session_state.app_mode = 'scenario_management'
+            st.switch_page("main.py")
+        st.stop()
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Distance (km)", f"{scenario_results.get('total_distance', 0):.2f}")
+    with col2:
+        st.metric("Total Customers Served", scenario_results.get('total_customers', 0))
+    with col3:
+        st.metric("Total Demand Delivered", scenario_results.get('total_demand', 0))
+    with col4:
+        st.metric("Capacity Utilization", f"{scenario_results.get('capacity_utilization', 0):.2f}%")
+    
+    st.subheader("Route Summary")
+    if 'route_summary' in scenario_results:
+        route_summary_df = pd.DataFrame(scenario_results['route_summary'])
+        st.dataframe(route_summary_df)
+    
+    if st.button("Return to Scenario Management"):
+        st.session_state.app_mode = 'scenario_management'
+        st.switch_page("main.py")
     
     st.stop()
 
