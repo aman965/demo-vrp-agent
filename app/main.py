@@ -312,6 +312,90 @@ if st.session_state.selected_df is not None or use_sample_data:
             log_text = "\n".join(st.session_state.log_messages)
             st.text_area("Log Messages", value=log_text, height=300, key="log_display")
     
+    if 'optimization_results' in st.session_state and st.session_state.optimization_results:
+        add_log_message("Using existing optimization results from scenario")
+        
+        try:
+            solution_data = st.session_state.optimization_results.get("solution_data")
+            route_info = st.session_state.optimization_results.get("route_info")
+            kpi_df = st.session_state.optimization_results.get("kpi_df")
+            detailed_df = st.session_state.optimization_results.get("detailed_df")
+            vehicle_capacity = st.session_state.optimization_results.get("vehicle_capacity")
+            total_distance = st.session_state.optimization_results.get("total_distance")
+            total_customers = st.session_state.optimization_results.get("total_customers")
+            total_demand = st.session_state.optimization_results.get("total_demand")
+            capacity_utilization = st.session_state.optimization_results.get("capacity_utilization")
+            
+            if route_info:
+                st.success("Loaded previously optimized results")
+                
+                st.subheader("Optimization Results")
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Distance (km)", f"{total_distance:.2f}")
+                with col2:
+                    st.metric("Total Customers Served", total_customers)
+                with col3:
+                    st.metric("Total Demand Delivered", total_demand)
+                with col4:
+                    st.metric("Overall Capacity Utilization", f"{capacity_utilization:.2f}%")
+                
+                st.markdown("### Route Details")
+                
+                route_summary = []
+                for route in route_info:
+                    route_summary.append({
+                        'Vehicle': f"Vehicle {route['vehicle_id']}",
+                        'Stops': len(route['stops']),
+                        'Total Distance (km)': round(route['total_distance'], 2),
+                        'Total Demand': route['total_demand'],
+                        'Capacity Utilization (%)': round(route['total_demand'] / vehicle_capacity * 100, 2)
+                    })
+                
+                route_df = pd.DataFrame(route_summary)
+                st.dataframe(route_df)
+                
+                st.markdown("### Route Paths")
+                for route in route_info:
+                    st.markdown(f"**{route['route_text']}**")
+                
+                tab1, tab2, tab3, tab4, tab5 = st.tabs(["KPIs & Visualizations", "Interactive Map (Folium)", "Interactive Map (Plotly)", "Export Results", "Chat"])
+                
+                
+                if st.button("Run New Optimization"):
+                    st.session_state.optimization_results = None
+                    st.rerun()
+                
+                if st.session_state.selected_scenario and 'scenario_id' in st.session_state.selected_scenario:
+                    if st.button("Save Results to Scenario"):
+                        scenario_id = st.session_state.selected_scenario['scenario_id']
+                        
+                        results_data = {
+                            "solution_data": solution_data,
+                            "route_info": route_info,
+                            "kpi_df": kpi_df.to_dict() if isinstance(kpi_df, pd.DataFrame) else kpi_df,
+                            "detailed_df": detailed_df.to_dict() if isinstance(detailed_df, pd.DataFrame) else detailed_df,
+                            "vehicle_capacity": vehicle_capacity,
+                            "total_distance": total_distance,
+                            "total_customers": total_customers,
+                            "total_demand": total_demand,
+                            "capacity_utilization": capacity_utilization,
+                            "route_summary": route_summary
+                        }
+                        
+                        success = update_scenario_results(scenario_id, results_data)
+                        if success:
+                            st.success(f"Results saved to scenario {st.session_state.selected_scenario['scenario_name']}")
+                        else:
+                            st.error("Failed to save results to scenario")
+                
+                st.stop()
+        except Exception as e:
+            st.error(f"Error displaying existing results: {str(e)}")
+            st.session_state.optimization_results = None
+            st.warning("Will run new optimization instead")
+    
     if st.button("Run Optimization"):
         st.session_state.log_messages = []
         st.session_state.expand_logs = True
