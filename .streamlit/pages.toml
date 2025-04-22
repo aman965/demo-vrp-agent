@@ -1,4 +1,4 @@
 # Configure which pages are visible in the sidebar
 [pages]
-"_hidden chat" = true
-"init" = true
+"_hidden chat" = false
+"init" = false
