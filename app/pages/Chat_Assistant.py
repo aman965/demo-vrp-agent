@@ -28,7 +28,10 @@ st.markdown(
 )
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from ..nlp_processor import process_query
+try:
+    from ..nlp_processor import process_query
+except ImportError:
+    from app.nlp_processor import process_query
 
 logging.basicConfig(
     level=logging.INFO,

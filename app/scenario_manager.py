@@ -286,6 +286,17 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                 if fresh_scenario and fresh_scenario.get("optimization_results"):
                     st.session_state.selected_scenario = fresh_scenario
                     st.session_state.optimization_results = fresh_scenario.get("optimization_results", {})
+                    
+                    # Ensure route_summary is available
+                    if "route_summary" not in st.session_state.optimization_results and "total_distance" in st.session_state.optimization_results:
+                        st.session_state.optimization_results["route_summary"] = [{
+                            "Vehicle": f"Vehicle {i+1}",
+                            "Stops": 0,
+                            "Total Distance (km)": 0,
+                            "Total Demand": 0,
+                            "Capacity Utilization (%)": 0
+                        } for i in range(fresh_scenario.get("config", {}).get("num_vehicles", 1))]
+                    
                     st.session_state.app_mode = 'view_results'
                     st.switch_page("main.py")
                 else:

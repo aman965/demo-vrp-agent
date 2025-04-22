@@ -88,21 +88,55 @@ def prepare_context(route_info, kpi_df, detailed_df, vehicle_capacity):
     Returns:
         dict: Contains context data about the CVRP problem and optimization results
     """
+    if route_info is None and 'route_summary' in st.session_state.optimization_results:
+        route_summary = st.session_state.optimization_results.get('route_summary', [])
+        if route_summary:
+            route_info = []
+            for idx, route in enumerate(route_summary):
+                vehicle_id = int(route['Vehicle'].replace('Vehicle ', '')) if isinstance(route['Vehicle'], str) else idx + 1
+                route_info.append({
+                    'vehicle_id': vehicle_id,
+                    'stops': [],  # We don't have detailed stop information
+                    'total_distance': route['Total Distance (km)'],
+                    'total_demand': route['Total Demand'],
+                    'route_text': f"Vehicle {vehicle_id}: Depot → ... → Depot"
+                })
+            
+            if kpi_df is None or (isinstance(kpi_df, pd.DataFrame) and kpi_df.empty):
+                kpi_data = []
+                for r in route_info:
+                    kpi_data.append({
+                        'Vehicle': f"Vehicle {r['vehicle_id']}",
+                        'Distance (km)': r['total_distance'],
+                        'Demand': r['total_demand'],
+                        'Capacity Utilization (%)': r['total_demand'] / vehicle_capacity * 100 if vehicle_capacity else 0
+                    })
+                kpi_df = pd.DataFrame(kpi_data)
+    
+    kpi_df = ensure_dataframe(kpi_df)
+    detailed_df = ensure_dataframe(detailed_df)
+    
     kpi_df_str = kpi_df.to_string() if not kpi_df.empty else "No KPI data available"
     detailed_df_str = detailed_df.to_string() if not detailed_df.empty else "No detailed route data available"
     
     route_info_str = "Route Information:\n"
-    for route in route_info:
-        vehicle_id = route['vehicle_id']
-        stops = [stop['customer_id'] for stop in route['stops']]
-        stops_str = "Depot → " + " → ".join(stops) + " → Depot"
-        route_info_str += f"Vehicle {vehicle_id}: {stops_str}\n"
+    if route_info:
+        for route in route_info:
+            vehicle_id = route['vehicle_id']
+            if 'stops' in route and route['stops']:
+                stops = [stop['customer_id'] for stop in route['stops']]
+                stops_str = "Depot → " + " → ".join(stops) + " → Depot"
+            else:
+                stops_str = f"Depot → ... → Depot (Total Demand: {route.get('total_demand', 'N/A')})"
+            route_info_str += f"Vehicle {vehicle_id}: {stops_str}\n"
+    else:
+        route_info_str += "No route information available"
     
     context = {
         "problem_description": "Capacitated Vehicle Routing Problem (CVRP) using Google OR-Tools",
         "vehicle_capacity": vehicle_capacity,
-        "num_vehicles": len(route_info),
-        "route_info": route_info,  # Pass the original list
+        "num_vehicles": len(route_info) if route_info else 0,
+        "route_info": route_info if route_info else [],  # Pass the original list or empty list
         "route_info_str": route_info_str,
         "kpi_df_str": kpi_df_str,
         "detailed_df_str": detailed_df_str,
