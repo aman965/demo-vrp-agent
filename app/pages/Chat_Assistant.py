@@ -78,7 +78,7 @@ if 'optimization_results' not in st.session_state or st.session_state.optimizati
     st.warning("No optimization results found. Please run optimization first.")
     if st.button("Return to Optimization Page"):
         st.session_state.app_mode = 'optimization'
-        st.switch_page("main.py")
+        st.switch_page("../../main.py")
     st.stop()
 
 try:
@@ -90,7 +90,7 @@ except (AttributeError, TypeError) as e:
     st.error(f"Error accessing optimization results: {str(e)}")
     if st.button("Return to Main Page"):
         st.session_state.app_mode = 'input_repository'
-        st.switch_page("main.py")
+        st.switch_page("../../main.py")
     st.stop()
 
 if (route_info is None or 
@@ -100,7 +100,7 @@ if (route_info is None or
     st.warning("Incomplete optimization results. Please run optimization again.")
     if st.button("Return to Optimization Page"):
         st.session_state.app_mode = 'optimization'
-        st.switch_page("main.py")
+        st.switch_page("../../main.py")
     st.stop()
 
 st.markdown("### Chat with VRP Assistant")
@@ -161,7 +161,7 @@ if st.button("Send", on_click=process_user_query):
 
 if st.button("Return to Optimization Page"):
     st.session_state.app_mode = 'optimization'
-    st.switch_page("main.py")
+    st.switch_page("../../main.py")
 
 with st.expander("Solver Log", expanded=False):
     log_text = "\n".join(st.session_state.log_messages) if 'log_messages' in st.session_state else ""
