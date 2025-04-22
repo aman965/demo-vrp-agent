@@ -155,19 +155,6 @@ if st.session_state.app_mode == 'scenario_management':
             st.session_state.app_mode = 'optimization'
             st.switch_page("main.py")
         
-        if hasattr(st.session_state, 'view_scenario_results') and st.session_state.view_scenario_results:
-            scenario_id = st.session_state.view_scenario_results
-            from app.scenario_manager import get_scenario_by_id
-            scenario = get_scenario_by_id(scenario_id)
-            
-            if scenario and scenario.get('optimization_results'):
-                st.session_state.selected_scenario = scenario
-                st.session_state.app_mode = 'view_results'
-                st.session_state.view_scenario_results = None  # Reset after use
-                st.switch_page("main.py")
-            else:
-                st.error(f"Could not find results for scenario {scenario_id}")
-                st.session_state.view_scenario_results = None
     
     col1, col2 = st.columns(2)
     with col1:
