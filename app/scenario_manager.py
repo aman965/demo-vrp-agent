@@ -304,8 +304,11 @@ def scenario_management_ui(snapshot_id, snapshot_name):
         col1, col2 = st.columns(2)
         with col1:
             if st.button("View Results"):
-                st.session_state.selected_scenario = selected_scenario
-                st.session_state.app_mode = 'view_results'
+                from scenario_manager import get_scenario_by_id
+                full_scenario = get_scenario_by_id(selected_scenario["scenario_id"])
+                st.session_state.selected_scenario = full_scenario
+                st.session_state.optimization_results = full_scenario.get("optimization_results", {})
+                st.session_state.app_mode = 'optimization'
                 st.switch_page("main.py")
                 return None, False
         with col2:

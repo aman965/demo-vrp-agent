@@ -317,6 +317,11 @@ if st.session_state.app_mode == 'scenario_comparison':
     st.stop()
 
 if st.session_state.app_mode == 'optimization':
+    if not st.session_state.get("optimization_results") and st.session_state.get("selected_scenario"):
+        from scenario_manager import get_scenario_by_id
+        scenario = get_scenario_by_id(st.session_state.selected_scenario["scenario_id"])
+        st.session_state.optimization_results = scenario.get("optimization_results", {})
+        
     if st.session_state.selected_scenario is None:
         st.error("No scenario selected. Please select a scenario first.")
         st.session_state.app_mode = 'scenario_management'
