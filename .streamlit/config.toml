@@ -12,3 +12,4 @@ enableXsrfProtection = false
 
 [ui]
 hideSidebarNav = true
+hideTopBar = true
