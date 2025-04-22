@@ -282,8 +282,14 @@ def scenario_management_ui(snapshot_id, snapshot_name):
         col1, col2 = st.columns(2)
         with col1:
             if st.button("View Results"):
-                st.session_state.view_scenario_results = selected_scenario["scenario_id"]
-                return selected_scenario, False
+                fresh_scenario = get_scenario_by_id(selected_scenario["scenario_id"])
+                if fresh_scenario and fresh_scenario.get("optimization_results"):
+                    st.session_state.selected_scenario = fresh_scenario
+                    st.session_state.app_mode = 'view_results'
+                    st.switch_page("main.py")
+                else:
+                    st.error(f"Could not find results for scenario {selected_scenario['scenario_id']}")
+                return None, False
         with col2:
             if st.button("Run Again", type="primary"):
                 return selected_scenario, True
