@@ -25,9 +25,9 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    [data-testid="stSidebar"] ul li:nth-child(2),
-    [data-testid="stSidebar"] ul li:nth-child(3) {
-        display: none;
+    [data-testid="stSidebar"] ul li:has(a:contains("hidden chat")),
+    [data-testid="stSidebar"] ul li:has(a:contains("init")) {
+        display: none !important;
     }
     </style>
     """,
