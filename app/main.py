@@ -157,7 +157,7 @@ if st.session_state.app_mode == 'scenario_management':
         
         if hasattr(st.session_state, 'view_scenario_results') and st.session_state.view_scenario_results:
             scenario_id = st.session_state.view_scenario_results
-            from scenario_manager import get_scenario_by_id
+            from app.scenario_manager import get_scenario_by_id
             scenario = get_scenario_by_id(scenario_id)
             
             if scenario and scenario.get('optimization_results'):
