@@ -28,7 +28,7 @@ st.markdown(
 )
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from app.nlp_processor import process_query
+from ..nlp_processor import process_query
 
 logging.basicConfig(
     level=logging.INFO,
@@ -82,7 +82,7 @@ if 'selected_snapshot' not in st.session_state or st.session_state.selected_snap
     st.stop()
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from app.scenario_manager import get_scenarios_for_snapshot, get_scenario_by_id
+from ..scenario_manager import get_scenarios_for_snapshot, get_scenario_by_id
 
 snapshot = st.session_state.selected_snapshot
 st.markdown(f"### Analyzing Scenarios for Snapshot: **{snapshot['snapshot_name']}**")

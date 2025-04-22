@@ -29,7 +29,7 @@ import sys
 import logging
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from app.nlp_processor import process_query
+from ..nlp_processor import process_query
 
 logging.basicConfig(
     level=logging.INFO,

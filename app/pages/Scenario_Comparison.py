@@ -28,8 +28,8 @@ st.markdown(
 )
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from app.scenario_manager import get_scenario_by_id
-from app.snapshot_manager import get_snapshot_by_id
+from ..scenario_manager import get_scenario_by_id
+from ..snapshot_manager import get_snapshot_by_id
 
 logging.basicConfig(
     level=logging.INFO,
