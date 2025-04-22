@@ -285,7 +285,7 @@ def snapshot_management_ui(input_file):
         if st.button("Chat Assistant"):
             st.session_state.selected_snapshot = selected_snapshot
             st.session_state.app_mode = 'chat_assistant'
-            st.switch_page(".hidden chat")
+            st.switch_page("_hidden chat")
             st.stop()
     
     with col3:
