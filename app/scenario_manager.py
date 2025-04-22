@@ -286,7 +286,7 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                 if fresh_scenario and fresh_scenario.get("optimization_results"):
                     st.session_state.selected_scenario = fresh_scenario
                     st.session_state.optimization_results = fresh_scenario.get("optimization_results", {})
-                    st.session_state.app_mode = 'optimization'
+                    st.session_state.app_mode = 'view_results'
                     st.switch_page("main.py")
                 else:
                     st.error(f"Could not find results for scenario {selected_scenario['scenario_id']}")
