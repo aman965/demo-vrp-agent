@@ -18,7 +18,7 @@ def scenario_comparison_ui(snapshot_id, snapshot_name):
     
     scenarios = get_scenarios_for_snapshot(snapshot_id)
     
-    scenarios_with_results = [s for s in scenarios if s.get("results") is not None]
+    scenarios_with_results = [s for s in scenarios if s.get("optimization_results") is not None]
     
     if len(scenarios_with_results) < 2:
         st.warning("You need at least two scenarios with results to compare. Please run optimization on more scenarios.")
@@ -41,7 +41,7 @@ def scenario_comparison_ui(snapshot_id, snapshot_name):
             "Scenario Name": s["scenario_name"],
             "Vehicles": s["config"]["num_vehicles"],
             "Capacity": s["config"]["vehicle_capacity"],
-            "Results Date": s["results"]["timestamp"] if s.get("results") else "N/A"
+            "Results Date": s["optimization_results"]["timestamp"] if s.get("optimization_results") else "N/A"
         } for s in scenarios_with_results
     ])
     
@@ -63,7 +63,7 @@ def scenario_comparison_ui(snapshot_id, snapshot_name):
     
     comparison_data = []
     for scenario in selected_scenarios:
-        results = scenario.get("results", {}).get("data", {})
+        results = scenario.get("optimization_results", {})
         if results:
             comparison_data.append({
                 "Scenario Name": scenario["scenario_name"],
