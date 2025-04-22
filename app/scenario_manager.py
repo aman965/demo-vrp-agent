@@ -249,7 +249,7 @@ def scenario_management_ui(snapshot_id, snapshot_name):
             "Created": s["created_at"],
             "Vehicles": s["config"]["num_vehicles"],
             "Capacity": s["config"]["vehicle_capacity"],
-            "Results": "Available" if s.get("results") else "Not Run"
+            "Results": "Available" if s.get("optimization_results") else "Not Run"
         } for s in scenarios
     ])
     
