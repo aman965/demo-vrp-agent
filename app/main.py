@@ -26,12 +26,14 @@ st.markdown(
     """
     <style>
     /* Hide unwanted pages from sidebar */
-    section[data-testid="stSidebar"] div.element-container:has(div.stMarkdown h3:contains("Navigation")) {
-        order: -1;
+    [data-testid="stSidebar"] ul li:has(a[href*="hidden_chat"]),
+    [data-testid="stSidebar"] ul li:has(a[href*="init"]) {
+        display: none !important;
     }
     
-    section[data-testid="stSidebar"] > div > div:first-child {
-        display: none !important;
+    /* Move navigation to top */
+    section[data-testid="stSidebar"] div.element-container:has(div.stMarkdown h3:contains("Navigation")) {
+        order: -1;
     }
     </style>
     """,
