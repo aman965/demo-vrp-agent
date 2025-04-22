@@ -2,3 +2,5 @@
 [pages]
 "_hidden_chat" = false
 "_init" = false
+"Chat_Assistant" = true
+"Scenario_Comparison" = true
