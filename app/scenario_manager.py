@@ -310,6 +310,7 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                 st.session_state.optimization_results = full_scenario.get("optimization_results", {})
                 st.session_state.app_mode = 'optimization'
                 st.toast("🔁 View Results triggered")
+                st.success("🔁 View Results triggered - Loading results...")
                 st.switch_page("main.py")
                 return None, False
         with col2:

@@ -322,6 +322,7 @@ if st.session_state.app_mode == 'optimization':
         scenario = get_scenario_by_id(st.session_state.selected_scenario["scenario_id"])
         st.session_state.optimization_results = scenario.get("optimization_results", {})
         st.toast("✅ Optimization results loaded in main.py")
+        st.success("✅ Optimization results loaded from saved scenario")
         
     if st.session_state.selected_scenario is None:
         st.error("No scenario selected. Please select a scenario first.")
