@@ -166,7 +166,7 @@ def input_repository_page():
     df = load_file(selected_file["file_path"])
     st.dataframe(df.head(10), use_container_width=True)
     
-    if st.button("Proceed to Scenario Setup", type="primary"):
+    if st.button("Proceed to Snapshot Setup", type="primary"):
         return selected_file, df
     
     return None, None
