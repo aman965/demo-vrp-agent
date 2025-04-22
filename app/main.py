@@ -26,8 +26,11 @@ st.markdown(
     """
     <style>
     /* Hide unwanted pages from sidebar */
-    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] div:nth-child(1) ul li:nth-child(2),
-    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] div:nth-child(1) ul li:nth-child(3) {
+    section[data-testid="stSidebar"] div.element-container:has(div.stMarkdown h3:contains("Navigation")) {
+        order: -1;
+    }
+    
+    section[data-testid="stSidebar"] > div > div:first-child {
         display: none !important;
     }
     </style>
