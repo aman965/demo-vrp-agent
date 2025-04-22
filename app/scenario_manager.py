@@ -153,9 +153,31 @@ def update_scenario_results(scenario_id, results):
     if not scenario_data:
         return False
     
+    scenarios_dir = get_scenarios_dir()
+    
+    try:
+        import sys
+        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+        from utils import save_dataframe
+        
+        if "kpi_df" in results and hasattr(results["kpi_df"], "to_csv"):
+            kpi_df_path = scenarios_dir / f"{scenario_id}_kpi.csv"
+            saved_path = save_dataframe(results["kpi_df"], kpi_df_path, "csv")
+            if saved_path:
+                results["kpi_df_path"] = os.path.relpath(saved_path, os.path.dirname(scenarios_dir))
+                results["kpi_df"] = results["kpi_df"].to_dict(orient="records")
+        
+        if "detailed_df" in results and hasattr(results["detailed_df"], "to_csv"):
+            detailed_df_path = scenarios_dir / f"{scenario_id}_detailed.csv"
+            saved_path = save_dataframe(results["detailed_df"], detailed_df_path, "csv")
+            if saved_path:
+                results["detailed_df_path"] = os.path.relpath(saved_path, os.path.dirname(scenarios_dir))
+                results["detailed_df"] = results["detailed_df"].to_dict(orient="records")
+    except Exception as e:
+        st.warning(f"Error saving DataFrames to separate files: {str(e)}")
+    
     scenario_data["optimization_results"] = results
     
-    scenarios_dir = get_scenarios_dir()
     file_path = scenarios_dir / f"{scenario_id}.json"
     
     try:
