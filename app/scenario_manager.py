@@ -319,7 +319,7 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                             "Capacity Utilization (%)": 0
                         } for i in range(fresh_scenario.get("config", {}).get("num_vehicles", 1))]
                     
-                    st.session_state.app_mode = 'view_results'
+                    st.session_state.app_mode = 'optimization'
                     st.switch_page("main.py")
                 else:
                     st.error(f"Could not find results for scenario {selected_scenario['scenario_id']}")
