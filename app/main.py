@@ -22,6 +22,18 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebar"] ul li:nth-child(2),
+    [data-testid="stSidebar"] ul li:nth-child(3) {
+        display: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 try:
     from streamlit_folium import folium_static
     FOLIUM_AVAILABLE = True
