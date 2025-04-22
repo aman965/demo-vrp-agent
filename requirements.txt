@@ -8,4 +8,4 @@ streamlit-folium==0.15.0
 openpyxl==3.1.2
 openai==1.12.0
 matplotlib==3.8.2
-# Force rebuild - Updated CSS selectors to hide pages with underscores
+# Force rebuild - Reverted CSS selectors for hiding sidebar pages
