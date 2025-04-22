@@ -78,7 +78,7 @@ if 'selected_snapshot' not in st.session_state or st.session_state.selected_snap
     st.warning("No snapshot selected. Please select a snapshot first.")
     if st.button("Return to Input Repository"):
         st.session_state.app_mode = 'input_repository'
-        st.switch_page("../../main.py")
+        st.switch_page("main.py")
     st.stop()
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -94,7 +94,7 @@ if not scenarios_with_results:
     st.warning("No scenarios with results found for this snapshot. Please run optimization for at least one scenario first.")
     if st.button("Return to Scenario Management"):
         st.session_state.app_mode = 'scenario_management'
-        st.switch_page("../../main.py")
+        st.switch_page("main.py")
     st.stop()
 
 selected_scenario_index = st.selectbox(
@@ -129,7 +129,7 @@ except (AttributeError, TypeError, KeyError) as e:
     add_log_message(f"Error accessing scenario results: {str(e)}", "ERROR")
     if st.button("Return to Scenario Management"):
         st.session_state.app_mode = 'scenario_management'
-        st.switch_page("../../main.py")
+        st.switch_page("main.py")
     st.stop()
 
 if (route_info is None or 
@@ -139,7 +139,7 @@ if (route_info is None or
     st.warning("Incomplete optimization results for this scenario. Please run optimization again.")
     if st.button("Return to Scenario Management"):
         st.session_state.app_mode = 'scenario_management'
-        st.switch_page("../../main.py")
+        st.switch_page("main.py")
     st.stop()
 
 st.markdown("### Chat with VRP Assistant")
@@ -205,11 +205,11 @@ col1, col2 = st.columns(2)
 with col1:
     if st.button("Return to Scenario Management"):
         st.session_state.app_mode = 'scenario_management'
-        st.switch_page("../../main.py")
+        st.switch_page("main.py")
 with col2:
     if st.button("Return to Input Repository"):
         st.session_state.app_mode = 'input_repository'
-        st.switch_page("../../main.py")
+        st.switch_page("main.py")
 
 with st.expander("Solver Log", expanded=False):
     log_text = "\n".join(st.session_state.log_messages) if 'log_messages' in st.session_state else ""
