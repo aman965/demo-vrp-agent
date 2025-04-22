@@ -203,7 +203,7 @@ def snapshot_management_ui(input_file):
                     description=description if description else None
                 )
                 st.success(f"Snapshot '{snapshot_data['snapshot_name']}' saved successfully!")
-                st.switch_page("main")
+                st.switch_page("main.py")
     
     with col2:
         st.subheader("What is a Snapshot?")
@@ -244,14 +244,14 @@ def snapshot_management_ui(input_file):
             if st.button("Chat Assistant", key=f"chat_{snapshot['snapshot_id']}"):
                 st.session_state.selected_snapshot = snapshot
                 st.session_state.app_mode = 'chat_assistant'
-                st.switch_page("Chat_Assistant.py")
+                st.switch_page("pages/Chat_Assistant.py")
         
         with col4:
             if len(snapshot.get('scenarios', [])) >= 2:
                 if st.button("Compare Scenarios", key=f"compare_{snapshot['snapshot_id']}"):
                     st.session_state.selected_snapshot = snapshot
                     st.session_state.app_mode = 'scenario_comparison'
-                    st.switch_page("Scenario_Comparison.py")
+                    st.switch_page("pages/Scenario_Comparison.py")
             else:
                 st.button("Compare Scenarios", key=f"compare_{snapshot['snapshot_id']}", disabled=True)
         
@@ -284,14 +284,14 @@ def snapshot_management_ui(input_file):
         if st.button("Chat Assistant"):
             st.session_state.selected_snapshot = selected_snapshot
             st.session_state.app_mode = 'chat_assistant'
-            st.switch_page("Chat_Assistant.py")
+            st.switch_page("pages/Chat_Assistant.py")
     
     with col3:
         if scenario_count >= 2:
             if st.button("Compare Scenarios"):
                 st.session_state.selected_snapshot = selected_snapshot
                 st.session_state.app_mode = 'scenario_comparison'
-                st.switch_page("Scenario_Comparison.py")
+                st.switch_page("pages/Scenario_Comparison.py")
         else:
             st.button("Compare Scenarios", disabled=True)
     
