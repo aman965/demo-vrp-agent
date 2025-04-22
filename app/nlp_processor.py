@@ -9,9 +9,11 @@ from io import StringIO
 import re
 import traceback
 import os
+from app.utils import get_openai_config, get_openai_api_key, add_log_message, safe_get_dataframe_value, ensure_dataframe
 
 API_KEY_AVAILABLE = False
-MODEL_NAME = "gpt-4"  # Default model
+openai_config = get_openai_config()
+MODEL_NAME = openai_config["model"]
 
 try:
     import openai
@@ -19,34 +21,20 @@ except ImportError:
     st.error("Failed to import OpenAI library. Please check your installation.")
     openai = None
 
-try:
-    api_key = st.secrets.get("OPENAI_API_KEY", "")
-    MODEL_NAME = st.secrets.get("OPENAI_MODEL", "gpt-3.5-turbo")
-    
-    if api_key and len(api_key) > 0:
+api_key = get_openai_api_key()
+
+if api_key and openai is not None:
+    try:
         openai.api_key = api_key
         API_KEY_AVAILABLE = True
-        st.success(f"OpenAI API key found in Streamlit secrets. Using model: {MODEL_NAME}")
-    else:
-        st.warning("OpenAI API key in Streamlit secrets is empty.")
-except Exception as e:
-    st.warning(f"Could not load OpenAI API key from Streamlit secrets: {str(e)}")
-
-if not API_KEY_AVAILABLE and openai is not None:
-    try:
-        for env_var in ["OPENAI_API_KEY", "vrp_demo_key", "streamlit_demo"]:
-            api_key = os.environ.get(env_var, "")
-            if api_key and len(api_key) > 0:
-                openai.api_key = api_key
-                API_KEY_AVAILABLE = True
-                st.success(f"OpenAI API key found in environment variable '{env_var}'. Using model: {MODEL_NAME}")
-                break
-        
-        if not API_KEY_AVAILABLE:
-            st.error("OpenAI API key not found. Please add OPENAI_API_KEY to your Streamlit secrets or environment variables.")
+        add_log_message(f"OpenAI API key found. Using model: {MODEL_NAME}", "INFO")
+        st.success(f"OpenAI API key found. Using model: {MODEL_NAME}")
     except Exception as e:
-        st.error(f"Error accessing environment variables: {str(e)}")
-        API_KEY_AVAILABLE = False
+        add_log_message(f"Error setting OpenAI API key: {str(e)}", "ERROR")
+        st.error(f"Error setting OpenAI API key: {str(e)}")
+else:
+    add_log_message("OpenAI API key not found or OpenAI library not available", "WARNING")
+    st.warning("OpenAI API key not found or OpenAI library not available. Please add OPENAI_API_KEY to your Streamlit secrets or environment variables.")
 
 def process_query(query, route_info, kpi_df, detailed_df, vehicle_capacity, context=None):
     """
@@ -160,7 +148,7 @@ def query_gpt_with_context(query, context):
         - Vehicle Capacity: {context['vehicle_capacity']}
         - Number of Vehicles: {context['num_vehicles']}
         
-        {f"5. Additional Context:\n{context['additional_context']}" if 'additional_context' in context else ""}
+        {"5. Additional Context:" + " " + context['additional_context'] if 'additional_context' in context else ""}
         
         YOUR TASK:
         Answer the user's query about the optimization results. If the query requires calculations or data extraction,
@@ -281,10 +269,11 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, ve
                 'pd': pd,
                 'px': px,
                 'go': go,
-                'np': np,
                 'math': math,
                 'haversine': haversine,
-                'StringIO': StringIO
+                'StringIO': StringIO,
+                'safe_get_dataframe_value': safe_get_dataframe_value,
+                'ensure_dataframe': ensure_dataframe
             }
             
             if plt_available:
@@ -303,12 +292,12 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, ve
                     vehicle_ids = None
                     
                     for var_name in ['vehicle_distances', 'distances', 'distance_values']:
-                        if var_name in local_vars and isinstance(local_vars[var_name], (list, np.ndarray, pd.Series)):
+                        if var_name in local_vars:
                             vehicle_distances = local_vars[var_name]
                             break
                     
                     for var_name in ['vehicle_ids', 'vehicles', 'ids']:
-                        if var_name in local_vars and isinstance(local_vars[var_name], (list, np.ndarray, pd.Series)):
+                        if var_name in local_vars:
                             vehicle_ids = local_vars[var_name]
                             break
                     
@@ -346,11 +335,24 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, ve
                                 x_values = []
                                 y_values = []
                                 for patch in ax.patches:
-                                    if hasattr(patch, 'get_x') and hasattr(patch, 'get_width'):
-                                        x = patch.get_x() + patch.get_width() / 2
-                                        y = patch.get_height()
-                                        x_values.append(x)
-                                        y_values.append(y)
+                                    try:
+                                        if hasattr(patch, 'get_x') and hasattr(patch, 'get_width') and hasattr(patch, 'get_height'):
+                                            x = patch.get_x() + patch.get_width() / 2
+                                            y = patch.get_height()
+                                            x_values.append(x)
+                                            y_values.append(y)
+                                        elif hasattr(patch, 'get_bbox'):
+                                            bbox = patch.get_bbox()
+                                            x = (bbox.x0 + bbox.x1) / 2
+                                            y = bbox.y1
+                                            x_values.append(x)
+                                            y_values.append(y)
+                                        elif hasattr(patch, 'xy'):
+                                            x, y = patch.xy
+                                            x_values.append(x)
+                                            y_values.append(y)
+                                    except Exception:
+                                        pass
                                 
                                 if x_values and y_values:
                                     fig.add_trace(go.Bar(x=x_values, y=y_values))
@@ -359,8 +361,26 @@ def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, ve
                                 for line in ax.lines:
                                     x_data = line.get_xdata()
                                     y_data = line.get_ydata()
-                                    if len(x_data) > 0 and len(y_data) > 0:
-                                        fig.add_trace(go.Scatter(x=x_data, y=y_data, mode='lines'))
+                                    try:
+                                        try:
+                                            import numpy as np
+                                            if isinstance(x_data, np.ndarray):
+                                                x_list = x_data.tolist()
+                                            else:
+                                                x_list = []
+                                                
+                                            if isinstance(y_data, np.ndarray):
+                                                y_list = y_data.tolist()
+                                            else:
+                                                y_list = []
+                                        except:
+                                            x_list = []
+                                            y_list = []
+                                        
+                                        if x_list and y_list and len(x_list) > 0 and len(y_list) > 0:
+                                            fig.add_trace(go.Scatter(x=x_list, y=y_list, mode='lines'))
+                                    except Exception:
+                                        pass
                         
                         if hasattr(ax, 'get_title') and ax.get_title():
                             fig.update_layout(title=ax.get_title())

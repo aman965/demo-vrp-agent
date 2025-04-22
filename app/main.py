@@ -14,6 +14,7 @@ import logging
 import sys
 import uuid
 import json
+from app.utils import safe_get_dataframe_value, ensure_dataframe, add_log_message
 
 st.set_page_config(
     page_title="Vehicle Routing Problem Solver",
@@ -47,13 +48,13 @@ except ImportError:
     FOLIUM_AVAILABLE = False
     st.warning("streamlit-folium package not available. Folium maps will be disabled. Please use Plotly maps instead.")
 
-from utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
-from solver import solve_cvrp, get_route_info
-from nlp_processor import process_query
-from input_repository import input_repository_page
-from snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
-from scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
-from scenario_comparison import scenario_comparison_ui
+from app.utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
+from app.solver import solve_cvrp, get_route_info
+from app.nlp_processor import process_query
+from app.input_repository import input_repository_page
+from app.snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
+from app.scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
+from app.scenario_comparison import scenario_comparison_ui
 
 logging.basicConfig(
     level=logging.INFO,
@@ -225,10 +226,10 @@ if st.session_state.selected_df is not None or use_sample_data:
         df = pd.DataFrame(data)
         st.info("Using sample data with random coordinates around New York City.")
     else:
-        df = st.session_state.selected_df
+        df = ensure_dataframe(st.session_state.selected_df)
         
         required_columns = ['CustomerID', 'Latitude', 'Longitude', 'Demand']
-        if not all(col in df.columns for col in required_columns):
+        if df.empty or not all(col in df.columns for col in required_columns):
             st.error(f"CSV file must contain the following columns: {', '.join(required_columns)}")
             st.stop()
     
@@ -271,7 +272,7 @@ if st.session_state.selected_df is not None or use_sample_data:
     
     if st.button("Run Optimization"):
         st.session_state.log_messages = []
-        log_expander.expanded = True
+        st.session_state.expand_logs = True
         
         with st.spinner("Calculating optimal routes..."):
             try:
@@ -280,7 +281,12 @@ if st.session_state.selected_df is not None or use_sample_data:
                 add_log_message(f"Number of vehicles: {vehicle_count}")
                 add_log_message(f"Vehicle capacity: {vehicle_capacity}")
                 
-                total_demand = sum(df['Demand'])
+                if 'Demand' in df.columns and not df.empty:
+                    total_demand = sum(df['Demand'])
+                else:
+                    total_demand = 0
+                    add_log_message("Warning: No demand data found", "WARNING")
+                
                 total_capacity = vehicle_count * vehicle_capacity
                 add_log_message(f"Total demand: {total_demand}")
                 add_log_message(f"Total capacity: {total_capacity}")
@@ -297,7 +303,11 @@ if st.session_state.selected_df is not None or use_sample_data:
                 add_log_message(f"Distance matrix shape: {distance_matrix.shape}")
                 
                 add_log_message("Extracting demand values...")
-                demands = df['Demand'].tolist()
+                if 'Demand' in df.columns and not df.empty:
+                    demands = df['Demand'].tolist()
+                else:
+                    demands = []
+                    add_log_message("Warning: No demand data found", "WARNING")
                 
                 add_log_message("Solving CVRP problem using OR-Tools...")
                 start_time = time.time()
@@ -502,8 +512,8 @@ if st.session_state.selected_df is not None or use_sample_data:
                                 'Stop Number': i + 1,
                                 'Customer ID': stop['customer_id'],
                                 'Demand': stop['demand'],
-                                'Latitude': df.iloc[stop['node_idx']]['Latitude'],
-                                'Longitude': df.iloc[stop['node_idx']]['Longitude']
+                                'Latitude': safe_get_dataframe_value(df, stop['node_idx'], 'Latitude', 0),
+                                'Longitude': safe_get_dataframe_value(df, stop['node_idx'], 'Longitude', 0)
                             })
                     
                     detailed_df = pd.DataFrame(detailed_results)
@@ -721,8 +731,8 @@ if st.session_state.selected_df is not None or use_sample_data:
                                     'Stop Number': i + 1,
                                     'Customer ID': stop['customer_id'],
                                     'Demand': stop['demand'],
-                                    'Latitude': df.iloc[stop['node_idx']]['Latitude'],
-                                    'Longitude': df.iloc[stop['node_idx']]['Longitude']
+                                    'Latitude': safe_get_dataframe_value(df, stop['node_idx'], 'Latitude', 0),
+                                    'Longitude': safe_get_dataframe_value(df, stop['node_idx'], 'Longitude', 0)
                                 })
                         
                         detailed_df = pd.DataFrame(detailed_results)

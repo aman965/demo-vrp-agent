@@ -8,6 +8,18 @@ from folium.plugins import MarkerCluster
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime
+import json
+import os
+import streamlit as st
+import logging
+from pathlib import Path
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
+logger = logging.getLogger("CVRP-App")
 
 
 def haversine_distance(lat1, lon1, lat2, lon2):
@@ -172,3 +184,104 @@ def create_plotly_map(df, routes):
     )
     
     return fig
+
+
+def get_openai_config():
+    """Get OpenAI API configuration with fallback hierarchy"""
+    config = {
+        "model": "gpt-4",  # Default to GPT-4 as requested
+        "temperature": 0.1,
+        "max_tokens": 1000
+    }
+    
+    try:
+        config["model"] = st.secrets.get("OPENAI_MODEL", os.environ.get("OPENAI_MODEL", config["model"]))
+    except FileNotFoundError:
+        config["model"] = os.environ.get("OPENAI_MODEL", config["model"])
+    
+    return config
+
+
+def get_openai_api_key():
+    """Get OpenAI API key with fallback hierarchy"""
+    api_key = None
+    
+    try:
+        api_key = st.secrets.get("OPENAI_API_KEY", None)
+    except FileNotFoundError:
+        pass
+        
+    if not api_key:
+        api_key = os.environ.get("OPENAI_API_KEY", None)
+        
+    if not api_key:
+        api_key = os.environ.get("vrp_demo_key", None)
+    
+    return api_key
+
+
+def add_log_message(message, level="INFO"):
+    """Add a message to the log with timestamp"""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    log_message = f"{timestamp} - {level}: {message}"
+    
+    if level == "ERROR":
+        logger.error(message)
+    elif level == "WARNING":
+        logger.warning(message)
+    else:
+        logger.info(message)
+    
+    if 'log_messages' not in st.session_state:
+        st.session_state.log_messages = []
+    
+    st.session_state.log_messages.append(log_message)
+
+
+def safe_get_dataframe_value(df, row_idx, column, default=None):
+    """Safely get a value from a DataFrame with proper null checking"""
+    if df is None or column not in df.columns:
+        return default
+    
+    try:
+        return df.iloc[row_idx][column]
+    except (IndexError, KeyError):
+        return default
+
+
+def navigate_to_page(page_name, required_state_vars=None):
+    """Navigate to a page with validation of required state variables"""
+    if required_state_vars:
+        for var in required_state_vars:
+            if var not in st.session_state or st.session_state[var] is None:
+                st.error(f"Missing required data: {var}")
+                return False
+    
+    try:
+        st.switch_page(page_name)
+        return True
+    except Exception as e:
+        st.error(f"Navigation error: {str(e)}")
+        return False
+
+
+def get_base_data_dir():
+    """Get the base data directory, creating it if it doesn't exist."""
+    base_dir = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / ".data"
+    os.makedirs(base_dir, exist_ok=True)
+    return base_dir
+
+
+def ensure_dataframe(data):
+    """Ensure data is a pandas DataFrame"""
+    if data is None:
+        return pd.DataFrame()
+        
+    if isinstance(data, dict) and 'records' in data:
+        return pd.DataFrame.from_records(data['records'])
+    elif isinstance(data, list):
+        return pd.DataFrame(data)
+    elif isinstance(data, pd.DataFrame):
+        return data
+    else:
+        return pd.DataFrame()
