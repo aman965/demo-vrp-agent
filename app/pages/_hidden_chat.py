@@ -7,6 +7,20 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+st.markdown(
+    """
+    <style>
+    [data-testid="stSidebar"] ul li:nth-child(2) {
+        display: none;
+    }
+    [data-testid="stSidebar"] ul li:nth-child(3) {
+        display: none;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
