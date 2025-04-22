@@ -85,19 +85,19 @@ with st.sidebar:
     
     if st.button("Input Repository", key="nav_input_repo", use_container_width=True):
         st.session_state.app_mode = 'input_repository'
-        st.rerun()
+        st.switch_page("main")
     
     if st.button("Snapshot Management", key="nav_snapshot", use_container_width=True):
         if st.session_state.selected_file is not None:
             st.session_state.app_mode = 'snapshot_management'
-            st.rerun()
+            st.switch_page("main")
         else:
             st.error("Please select an input file first")
     
     if st.button("Scenario Management", key="nav_scenario", use_container_width=True):
         if st.session_state.selected_snapshot is not None:
             st.session_state.app_mode = 'scenario_management'
-            st.rerun()
+            st.switch_page("main")
         else:
             st.error("Please select a snapshot first")
 
@@ -108,7 +108,7 @@ if st.session_state.app_mode == 'input_repository':
         st.session_state.selected_file = selected_file
         st.session_state.selected_df = df
         st.session_state.app_mode = 'snapshot_management'
-        st.rerun()
+        st.switch_page("main")
     
     st.stop()
 
@@ -137,7 +137,7 @@ if st.session_state.app_mode == 'scenario_management':
     if st.session_state.selected_snapshot is None:
         st.error("No snapshot selected. Please select a snapshot first.")
         st.session_state.app_mode = 'snapshot_management'
-        st.rerun()
+        st.switch_page("main")
         
     selected_scenario, run_optimization = scenario_management_ui(
         snapshot_id=st.session_state.selected_snapshot['snapshot_id'],
@@ -167,7 +167,7 @@ if st.session_state.app_mode == 'scenario_comparison':
     if st.session_state.selected_snapshot is None:
         st.error("No snapshot selected. Please select a snapshot first.")
         st.session_state.app_mode = 'snapshot_management'
-        st.rerun()
+        st.switch_page("main")
     
     scenario_comparison_ui(
         snapshot_id=st.session_state.selected_snapshot['snapshot_id'],
@@ -180,17 +180,17 @@ if st.session_state.app_mode == 'chat_assistant':
     if st.session_state.selected_snapshot is None:
         st.error("No snapshot selected. Please select a snapshot first.")
         st.session_state.app_mode = 'snapshot_management'
-        st.rerun()
+        st.switch_page("main")
     
     st.title(f"Chat Assistant for {st.session_state.selected_snapshot['snapshot_name']}")
     st.markdown("Ask questions about scenarios in this snapshot or compare scenario results.")
     
     if st.button("Return to Snapshot Management"):
         st.session_state.app_mode = 'snapshot_management'
-        st.rerun()
+        st.switch_page("main")
     
     st.session_state.app_mode = 'chat_assistant'
-    st.rerun()
+    st.switch_page("Chat_Assistant")
     st.stop()
 
 st.title("Capacitated Vehicle Routing Problem (CVRP) Solver")
