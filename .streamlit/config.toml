@@ -11,5 +11,5 @@ enableCORS = false
 enableXsrfProtection = false
 
 [ui]
-hideSidebarNav = false
+hideSidebarNav = true
 hideTopBar = true
