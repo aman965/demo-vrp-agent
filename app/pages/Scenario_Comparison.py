@@ -61,7 +61,7 @@ if 'selected_snapshot' not in st.session_state or st.session_state.selected_snap
     st.warning("No snapshot selected. Please select a snapshot first.")
     if st.button("Return to Input Repository"):
         st.session_state.app_mode = 'input_repository'
-        st.switch_page("main.py")
+        st.switch_page("../../main.py")
     st.stop()
 
 snapshot = st.session_state.selected_snapshot
@@ -71,14 +71,14 @@ if not snapshot.get('scenarios', []):
     st.warning("This snapshot has no scenarios to compare. Please create at least two scenarios first.")
     if st.button("Return to Scenario Management"):
         st.session_state.app_mode = 'scenario_management'
-        st.switch_page("main.py")
+        st.switch_page("../../main.py")
     st.stop()
 
 if len(snapshot.get('scenarios', [])) < 2:
     st.warning("This snapshot has only one scenario. Please create at least one more scenario to compare.")
     if st.button("Return to Scenario Management"):
         st.session_state.app_mode = 'scenario_management'
-        st.switch_page("main.py")
+        st.switch_page("../../main.py")
     st.stop()
 
 scenario_ids = snapshot.get('scenarios', [])
@@ -95,7 +95,7 @@ if len(scenarios) < 2:
     st.warning("Not enough scenarios with optimization results to compare. Please run optimization for at least two scenarios.")
     if st.button("Return to Scenario Management"):
         st.session_state.app_mode = 'scenario_management'
-        st.switch_page("main.py")
+        st.switch_page("../../main.py")
     st.stop()
 
 st.subheader("Select Scenarios to Compare")
@@ -110,7 +110,7 @@ if not selected_scenario_indices or len(selected_scenario_indices) < 2:
     st.warning("Please select at least two scenarios to compare.")
     if st.button("Return to Scenario Management"):
         st.session_state.app_mode = 'scenario_management'
-        st.switch_page("main.py")
+        st.switch_page("../../main.py")
     st.stop()
 
 selected_scenarios = [scenarios[i] for i in selected_scenario_indices]
@@ -132,7 +132,7 @@ if not comparison_data:
     st.error("No KPI data available for the selected scenarios.")
     if st.button("Return to Scenario Management"):
         st.session_state.app_mode = 'scenario_management'
-        st.switch_page("main.py")
+        st.switch_page("../../main.py")
     st.stop()
 
 combined_kpi_df = pd.concat(comparison_data, ignore_index=True)
@@ -177,12 +177,12 @@ col1, col2 = st.columns(2)
 with col1:
     if st.button("Return to Scenario Management"):
         st.session_state.app_mode = 'scenario_management'
-        st.switch_page("main.py")
+        st.switch_page("../../main.py")
 
 with col2:
     if st.button("Return to Input Repository"):
         st.session_state.app_mode = 'input_repository'
-        st.switch_page("main.py")
+        st.switch_page("../../main.py")
 
 with st.expander("Solver Log", expanded=False):
     log_text = "\n".join(st.session_state.log_messages) if 'log_messages' in st.session_state else ""
