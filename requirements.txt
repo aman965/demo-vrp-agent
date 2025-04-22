@@ -8,4 +8,4 @@ streamlit-folium==0.15.0
 openpyxl==3.1.2
 openai==1.12.0
 matplotlib==3.8.2
-# Force rebuild - Updated config.toml to fix duplicate server section
+# Force rebuild - Updated CSS to hide unwanted sidebar items using more specific selectors
