@@ -190,7 +190,7 @@ if st.session_state.app_mode == 'chat_assistant':
         st.switch_page("main.py")
     
     st.session_state.app_mode = 'chat_assistant'
-    st.switch_page("Chat_Assistant.py")
+    st.switch_page("pages/Chat_Assistant.py")
     st.stop()
 
 st.title("Capacitated Vehicle Routing Problem (CVRP) Solver")
