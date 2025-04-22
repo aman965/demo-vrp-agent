@@ -1,6 +1,6 @@
 # Configure which pages are visible in the sidebar
 [pages]
-"hidden_chat" = false
-"init" = false
+"_hidden_chat" = false
+"_init" = false
 "Chat_Assistant" = true
 "Scenario_Comparison" = true
