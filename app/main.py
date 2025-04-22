@@ -320,13 +320,22 @@ if st.session_state.selected_df is not None or use_sample_data:
             route_info = st.session_state.optimization_results.get("route_info")
             kpi_df = st.session_state.optimization_results.get("kpi_df")
             detailed_df = st.session_state.optimization_results.get("detailed_df")
-            vehicle_capacity = st.session_state.optimization_results.get("vehicle_capacity")
-            total_distance = st.session_state.optimization_results.get("total_distance")
-            total_customers = st.session_state.optimization_results.get("total_customers")
-            total_demand = st.session_state.optimization_results.get("total_demand")
-            capacity_utilization = st.session_state.optimization_results.get("capacity_utilization")
             
-            if route_info:
+            vehicle_capacity = st.session_state.optimization_results.get("vehicle_capacity")
+            if vehicle_capacity is None and st.session_state.selected_scenario and 'config' in st.session_state.selected_scenario:
+                vehicle_capacity = st.session_state.selected_scenario['config'].get('vehicle_capacity', 100)
+                add_log_message(f"Using vehicle capacity from scenario config: {vehicle_capacity}")
+            
+            total_distance = st.session_state.optimization_results.get("total_distance", 0)
+            total_customers = st.session_state.optimization_results.get("total_customers", 0)
+            total_demand = st.session_state.optimization_results.get("total_demand", 0)
+            capacity_utilization = st.session_state.optimization_results.get("capacity_utilization", 0)
+            
+            route_summary = st.session_state.optimization_results.get("route_summary", [])
+            
+            has_results = (route_info is not None) or (len(route_summary) > 0)
+            
+            if has_results:
                 st.success("Loaded previously optimized results")
                 
                 st.subheader("Optimization Results")
@@ -343,22 +352,25 @@ if st.session_state.selected_df is not None or use_sample_data:
                 
                 st.markdown("### Route Details")
                 
-                route_summary = []
-                for route in route_info:
-                    route_summary.append({
-                        'Vehicle': f"Vehicle {route['vehicle_id']}",
-                        'Stops': len(route['stops']),
-                        'Total Distance (km)': round(route['total_distance'], 2),
-                        'Total Demand': route['total_demand'],
-                        'Capacity Utilization (%)': round(route['total_demand'] / vehicle_capacity * 100, 2)
-                    })
+                # If route_summary is not available, generate it from route_info
+                if not route_summary and route_info:
+                    route_summary = []
+                    for route in route_info:
+                        route_summary.append({
+                            'Vehicle': f"Vehicle {route['vehicle_id']}",
+                            'Stops': len(route['stops']),
+                            'Total Distance (km)': round(route['total_distance'], 2),
+                            'Total Demand': route['total_demand'],
+                            'Capacity Utilization (%)': round(route['total_demand'] / vehicle_capacity * 100, 2)
+                        })
                 
                 route_df = pd.DataFrame(route_summary)
                 st.dataframe(route_df)
                 
-                st.markdown("### Route Paths")
-                for route in route_info:
-                    st.markdown(f"**{route['route_text']}**")
+                if route_info:
+                    st.markdown("### Route Paths")
+                    for route in route_info:
+                        st.markdown(f"**{route['route_text']}**")
                 
                 tab1, tab2, tab3, tab4, tab5 = st.tabs(["KPIs & Visualizations", "Interactive Map (Folium)", "Interactive Map (Plotly)", "Export Results", "Chat"])
                 
