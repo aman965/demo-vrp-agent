@@ -171,7 +171,8 @@ if st.session_state.app_mode == 'chat_assistant':
         st.session_state.app_mode = 'snapshot_management'
         st.rerun()
     
-    st.switch_page("_hidden chat")
+    st.session_state.app_mode = 'chat_assistant'
+    st.rerun()
     st.stop()
 
 st.title("Capacitated Vehicle Routing Problem (CVRP) Solver")
@@ -817,7 +818,8 @@ if st.session_state.selected_df is not None or use_sample_data:
                     }
                     
                     if st.button("Open Chat Assistant", key="open_chat_button"):
-                        st.switch_page("_hidden chat")
+                        st.session_state.app_mode = 'chat_assistant'
+                        st.rerun()
                 
             except Exception as e:
                 error_msg = f"An error occurred in the chat interface: {str(e)}"
