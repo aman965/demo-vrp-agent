@@ -85,7 +85,10 @@ if 'selected_snapshot' not in st.session_state or st.session_state.selected_snap
     st.stop()
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from ..scenario_manager import get_scenarios_for_snapshot, get_scenario_by_id
+try:
+    from ..scenario_manager import get_scenarios_for_snapshot, get_scenario_by_id
+except ImportError:
+    from app.scenario_manager import get_scenarios_for_snapshot, get_scenario_by_id
 
 snapshot = st.session_state.selected_snapshot
 st.markdown(f"### Analyzing Scenarios for Snapshot: **{snapshot['snapshot_name']}**")
