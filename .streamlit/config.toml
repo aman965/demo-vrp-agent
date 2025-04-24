@@ -13,7 +13,7 @@ enableCORS = false
 gatherUsageStats = false
 
 [app]
-target = "main.py"
+target = "app/main.py"
 
 [ui]
 hideSidebarNav = true
