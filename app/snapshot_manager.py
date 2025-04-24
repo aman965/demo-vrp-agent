@@ -7,7 +7,7 @@ import uuid
 import numpy as np
 from pathlib import Path
 import sys
-from app.utils.json_utils import CustomJSONEncoder
+from utils.json_utils import CustomJSONEncoder
 
 def get_snapshots_dir():
     """Get the path to the snapshots directory, creating it if it doesn't exist."""
