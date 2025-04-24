@@ -121,12 +121,18 @@ comparison_data = []
 for scenario in selected_scenarios:
     if 'optimization_results' in scenario and 'route_info' in scenario['optimization_results']:
         # Extract route information
-        route_info = pd.DataFrame(scenario['optimization_results']['route_info'])
+        route_info = scenario['optimization_results']['route_info']
         
-        # Add scenario identifier
-        route_info['Scenario'] = scenario['scenario_name']
+        # Create a DataFrame for this scenario's routes
+        scenario_df = pd.DataFrame([{
+            'Vehicle': f"Vehicle {route['vehicle_id']}",
+            'Distance': route['total_distance'],
+            'Customers': len(route['stops']),
+            'Utilization': (route['total_demand'] / scenario['config']['vehicle_capacity']) * 100,
+            'Scenario': scenario['scenario_name']
+        } for route in route_info])
         
-        comparison_data.append(route_info)
+        comparison_data.append(scenario_df)
     else:
         st.warning(f"Scenario '{scenario['scenario_name']}' has no route information.")
 
@@ -146,8 +152,8 @@ st.subheader("Visualization Comparison")
 # Create a bar chart for total distance
 fig_distance = px.bar(
     combined_kpi_df,
-    x='Vehicle ID',  # or the actual column name for vehicle
-    y='Distance',    # or the actual column name for distance
+    x='Vehicle',
+    y='Distance',
     color='Scenario',
     barmode='group',
     title='Distance by Vehicle',
@@ -158,8 +164,8 @@ st.plotly_chart(fig_distance, use_container_width=True)
 # Create a bar chart for capacity utilization
 fig_util = px.bar(
     combined_kpi_df,
-    x='Vehicle ID',  # or the actual column name for vehicle
-    y='Utilization',  # or the actual column name for utilization
+    x='Vehicle',
+    y='Utilization',
     color='Scenario',
     barmode='group',
     title='Capacity Utilization by Vehicle',
@@ -171,8 +177,8 @@ st.plotly_chart(fig_util, use_container_width=True)
 # Create a bar chart for customers served
 fig_customers = px.bar(
     combined_kpi_df,
-    x='Vehicle ID',  # or the actual column name for vehicle
-    y='Customers',   # or the actual column name for customers
+    x='Vehicle',
+    y='Customers',
     color='Scenario',
     barmode='group',
     title='Customers Served by Vehicle'
