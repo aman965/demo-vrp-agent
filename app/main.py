@@ -52,7 +52,7 @@ from solver import solve_cvrp, get_route_info
 from nlp_processor import process_query
 from input_repository import input_repository_page
 from snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
-from scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
+from app.scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
 from scenario_comparison import scenario_comparison_ui
 
 logging.basicConfig(

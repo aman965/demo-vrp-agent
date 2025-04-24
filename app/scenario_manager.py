@@ -1,31 +1,14 @@
 import streamlit as st
 import pandas as pd
 import os
-import datetime
+from datetime import datetime
 import json
 import uuid
 import numpy as np
 from pathlib import Path
 from app.nlp_processor import process_query
-
-class CustomJSONEncoder(json.JSONEncoder):
-    """Custom JSON encoder to handle non-serializable objects."""
-    def default(self, obj):
-        if isinstance(obj, (np.int_, np.intc, np.intp, np.int8,
-            np.int16, np.int32, np.int64, np.uint8,
-            np.uint16, np.uint32, np.uint64)):
-            return int(obj)
-        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
-            return float(obj)
-        elif isinstance(obj, (np.ndarray,)):
-            return obj.tolist()
-        elif isinstance(obj, pd.DataFrame):
-            return obj.to_dict('records')
-        elif isinstance(obj, datetime.datetime):
-            return obj.strftime("%Y-%m-%d %H:%M:%S")
-        elif pd.isna(obj):
-            return None
-        return super().default(obj)
+from app.snapshot_manager import get_snapshot_by_id
+from app.utils.json_utils import CustomJSONEncoder
 
 def get_scenarios_dir():
     """Get the path to the scenarios directory, creating it if it doesn't exist."""
