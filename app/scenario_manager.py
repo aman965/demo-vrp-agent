@@ -100,7 +100,7 @@ def add_scenario_to_snapshot(snapshot_id, scenario_id):
     Returns:
         bool: True if successful, False otherwise
     """
-    from app.snapshot_manager import get_snapshot_by_id, update_snapshot_scenarios
+    from snapshot_manager import get_snapshot_by_id, update_snapshot_scenarios
     
     snapshot = get_snapshot_by_id(snapshot_id)
     if not snapshot:
