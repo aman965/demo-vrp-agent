@@ -14,3 +14,6 @@ enableStaticServing = true
 [ui]
 hideSidebarNav = true
 hideTopBar = true
+
+[app]
+target = "main.py"

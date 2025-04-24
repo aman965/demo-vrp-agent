@@ -14,16 +14,34 @@ import logging
 import sys
 import uuid
 import json
-from utils import safe_get_dataframe_value, ensure_dataframe, add_log_message, get_input_file_path_by_id
 
-st.set_page_config(
-    page_title="Vehicle Routing Problem Solver",
-    page_icon="🚚",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-st.markdown(
+if __name__ == "__main__" or os.environ.get("STREAMLIT_RUN_APP") == "1":
+    from utils import safe_get_dataframe_value, ensure_dataframe, add_log_message, get_input_file_path_by_id
+    from utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
+    from solver import solve_cvrp, get_route_info
+    from nlp_processor import process_query
+    from input_repository import input_repository_page
+    from snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
+    from scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
+    from scenario_comparison import scenario_comparison_ui
+    
+    st.set_page_config(
+        page_title="Vehicle Routing Problem Solver",
+        page_icon="🚚",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+else:
+    from app.utils import safe_get_dataframe_value, ensure_dataframe, add_log_message, get_input_file_path_by_id
+    from app.utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
+    from app.solver import solve_cvrp, get_route_info
+    from app.nlp_processor import process_query
+    from app.input_repository import input_repository_page
+    from app.snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
+    from app.scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
+    from app.scenario_comparison import scenario_comparison_ui
+    
+    st.markdown(
     """
     <style>
     /* Hide unwanted pages from sidebar */
@@ -41,192 +59,188 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-try:
-    from streamlit_folium import folium_static
-    FOLIUM_AVAILABLE = True
-except ImportError:
-    FOLIUM_AVAILABLE = False
-    st.warning("streamlit-folium package not available. Folium maps will be disabled. Please use Plotly maps instead.")
+    try:
+        from streamlit_folium import folium_static
+        FOLIUM_AVAILABLE = True
+    except ImportError:
+        FOLIUM_AVAILABLE = False
+        st.warning("streamlit-folium package not available. Folium maps will be disabled. Please use Plotly maps instead.")
 
-from utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
-from solver import solve_cvrp, get_route_info
-from nlp_processor import process_query
-from input_repository import input_repository_page
-from snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
-from scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
-from scenario_comparison import scenario_comparison_ui
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger("CVRP-Solver")
-
-if 'app_mode' not in st.session_state:
-    st.session_state.app_mode = 'input_repository'
-
-if 'selected_file' not in st.session_state:
-    st.session_state.selected_file = None
-    
-if 'selected_df' not in st.session_state:
-    st.session_state.selected_df = None
-    
-if 'selected_snapshot' not in st.session_state:
-    st.session_state.selected_snapshot = None
-    
-if 'selected_scenario' not in st.session_state:
-    st.session_state.selected_scenario = None
-    
-if 'optimization_results' not in st.session_state:
-    st.session_state.optimization_results = None
-    
-if 'view_scenario_results' not in st.session_state:
-    st.session_state.view_scenario_results = None
-
-with st.sidebar:
-    st.markdown("### Navigation")
-    
-    if st.button("Input Repository", key="nav_input_repo", use_container_width=True):
-        st.session_state.app_mode = 'input_repository'
-        st.switch_page("main.py")
-    
-    if st.button("Snapshot Management", key="nav_snapshot", use_container_width=True):
-        if st.session_state.selected_file is not None:
-            st.session_state.app_mode = 'snapshot_management'
-            st.switch_page("main.py")
-        else:
-            st.error("Please select an input file first")
-    
-    if st.button("Scenario Management", key="nav_scenario", use_container_width=True):
-        if st.session_state.selected_snapshot is not None:
-            st.session_state.app_mode = 'scenario_management'
-            st.switch_page("main.py")
-        else:
-            st.error("Please select a snapshot first")
-
-if st.session_state.app_mode == 'input_repository':
-    selected_file, df = input_repository_page()
-    
-    if selected_file is not None and df is not None:
-        st.session_state.selected_file = selected_file
-        st.session_state.selected_df = df
-        st.session_state.app_mode = 'snapshot_management'
-        st.switch_page("main.py")
-    
-    st.stop()
-
-if st.session_state.app_mode == 'snapshot_management':
-    if st.session_state.selected_file is None:
-        st.error("No input file selected. Please select an input file first.")
-        st.session_state.app_mode = 'input_repository'
-        st.switch_page("main.py")
-        
-    selected_snapshot, create_scenario = snapshot_management_ui(st.session_state.selected_file)
-    
-    if selected_snapshot is not None:
-        st.session_state.selected_snapshot = selected_snapshot
-        
-        if create_scenario:
-            st.session_state.app_mode = 'scenario_management'
-            st.switch_page("main.py")
-    
-    if st.button("Return to Input Repository"):
-        st.session_state.app_mode = 'input_repository'
-        st.switch_page("main.py")
-    
-    st.stop()
-
-if st.session_state.app_mode == 'scenario_management':
-    if st.session_state.selected_snapshot is None:
-        st.error("No snapshot selected. Please select a snapshot first.")
-        st.session_state.app_mode = 'snapshot_management'
-        st.switch_page("main.py")
-        
-    selected_scenario, run_optimization = scenario_management_ui(
-        snapshot_id=st.session_state.selected_snapshot['snapshot_id'],
-        snapshot_name=st.session_state.selected_snapshot['snapshot_name']
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
     )
-    
-    if selected_scenario is not None:
-        st.session_state.selected_scenario = selected_scenario
+    logger = logging.getLogger("CVRP-Solver")
+
+    if 'app_mode' not in st.session_state:
+        st.session_state.app_mode = 'input_repository'
+
+    if 'selected_file' not in st.session_state:
+        st.session_state.selected_file = None
         
-        if run_optimization:
-            st.session_state.app_mode = 'optimization'
+    if 'selected_df' not in st.session_state:
+        st.session_state.selected_df = None
+        
+    if 'selected_snapshot' not in st.session_state:
+        st.session_state.selected_snapshot = None
+    
+    if 'selected_scenario' not in st.session_state:
+        st.session_state.selected_scenario = None
+        
+    if 'optimization_results' not in st.session_state:
+        st.session_state.optimization_results = None
+        
+    if 'view_scenario_results' not in st.session_state:
+        st.session_state.view_scenario_results = None
+
+    with st.sidebar:
+        st.markdown("### Navigation")
+        
+        if st.button("Input Repository", key="nav_input_repo", use_container_width=True):
+            st.session_state.app_mode = 'input_repository'
             st.switch_page("main.py")
         
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Return to Snapshot Management"):
+        if st.button("Snapshot Management", key="nav_snapshot", use_container_width=True):
+            if st.session_state.selected_file is not None:
+                st.session_state.app_mode = 'snapshot_management'
+                st.switch_page("main.py")
+            else:
+                st.error("Please select an input file first")
+        
+        if st.button("Scenario Management", key="nav_scenario", use_container_width=True):
+            if st.session_state.selected_snapshot is not None:
+                st.session_state.app_mode = 'scenario_management'
+                st.switch_page("main.py")
+            else:
+                st.error("Please select a snapshot first")
+
+    if st.session_state.app_mode == 'input_repository':
+        selected_file, df = input_repository_page()
+        
+        if selected_file is not None and df is not None:
+            st.session_state.selected_file = selected_file
+            st.session_state.selected_df = df
             st.session_state.app_mode = 'snapshot_management'
             st.switch_page("main.py")
-    with col2:
+        
+        st.stop()
+
+    if st.session_state.app_mode == 'snapshot_management':
+        if st.session_state.selected_file is None:
+            st.error("No input file selected. Please select an input file first.")
+            st.session_state.app_mode = 'input_repository'
+            st.switch_page("main.py")
+            
+        selected_snapshot, create_scenario = snapshot_management_ui(st.session_state.selected_file)
+        
+        if selected_snapshot is not None:
+            st.session_state.selected_snapshot = selected_snapshot
+            
+            if create_scenario:
+                st.session_state.app_mode = 'scenario_management'
+                st.switch_page("main.py")
+        
         if st.button("Return to Input Repository"):
             st.session_state.app_mode = 'input_repository'
             st.switch_page("main.py")
-    
-    st.stop()
-
-if st.session_state.app_mode == 'view_results':
-    st.title("Optimization Results")
-
-    if st.session_state.selected_scenario is None:
-        st.error("No scenario selected to view results.")
-        st.session_state.app_mode = 'scenario_management'
-        st.switch_page("main.py")
+        
         st.stop()
-    
-    results = st.session_state.selected_scenario.get("optimization_results", None)
-    
-    if not results:
-        st.warning("No saved optimization results found for this scenario.")
-        st.session_state.app_mode = 'scenario_management'
-        st.switch_page("main.py")
-        st.stop()
-    
-    st.success(f"Results for: {st.session_state.selected_scenario['scenario_name']}")
-    
-    st.metric("Total Distance (km)", f"{results['total_distance']:.2f}")
-    st.metric("Total Demand Delivered", results['total_demand'])
-    st.metric("Capacity Utilization", f"{results['capacity_utilization']:.2f}%")
-    
-    st.markdown("### Route Summary")
-    st.dataframe(pd.DataFrame(results['route_summary']))
-    
-    st.markdown("Return to [Scenario Management](main.py) to re-run or select another.")
-    
-    if st.button("Back to Scenarios"):
-        st.session_state.app_mode = 'scenario_management'
-        st.switch_page("main.py")
-    
-    st.stop()
 
-    if st.session_state.selected_scenario is None:
-        st.error("No scenario selected. Please select a scenario first.")
-        st.session_state.app_mode = 'scenario_management'
-        st.switch_page("main.py")
-    
-    from scenario_manager import get_scenario_by_id
-    scenario_id = st.session_state.selected_scenario.get('scenario_id')
-    if scenario_id:
-        fresh_scenario = get_scenario_by_id(scenario_id)
-        if fresh_scenario:
-            st.session_state.selected_scenario = fresh_scenario
-            st.session_state.optimization_results = fresh_scenario.get('optimization_results', {})
-            add_log_message(f"Loaded optimization results from disk for scenario {fresh_scenario.get('scenario_name')}")
-    
-    st.title("Scenario Results")
-    st.success(f"Viewing results for scenario: {st.session_state.selected_scenario['scenario_name']}")
-    
-    scenario_results = st.session_state.optimization_results
-    
-    if not scenario_results:
-        st.error("No results found for this scenario.")
-        if st.button("Return to Scenario Management"):
+    if st.session_state.app_mode == 'scenario_management':
+        if st.session_state.selected_snapshot is None:
+            st.error("No snapshot selected. Please select a snapshot first.")
+            st.session_state.app_mode = 'snapshot_management'
+            st.switch_page("main.py")
+            
+        selected_scenario, run_optimization = scenario_management_ui(
+            snapshot_id=st.session_state.selected_snapshot['snapshot_id'],
+            snapshot_name=st.session_state.selected_snapshot['snapshot_name']
+        )
+        
+        if selected_scenario is not None:
+            st.session_state.selected_scenario = selected_scenario
+            
+            if run_optimization:
+                st.session_state.app_mode = 'optimization'
+                st.switch_page("main.py")
+            
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Return to Snapshot Management"):
+                st.session_state.app_mode = 'snapshot_management'
+                st.switch_page("main.py")
+        with col2:
+            if st.button("Return to Input Repository"):
+                st.session_state.app_mode = 'input_repository'
+                st.switch_page("main.py")
+        
+        st.stop()
+
+    if st.session_state.app_mode == 'view_results':
+        st.title("Optimization Results")
+
+        if st.session_state.selected_scenario is None:
+            st.error("No scenario selected to view results.")
             st.session_state.app_mode = 'scenario_management'
             st.switch_page("main.py")
+            st.stop()
+        
+        results = st.session_state.selected_scenario.get("optimization_results", None)
+        
+        if not results:
+            st.warning("No saved optimization results found for this scenario.")
+            st.session_state.app_mode = 'scenario_management'
+            st.switch_page("main.py")
+            st.stop()
+        
+        st.success(f"Results for: {st.session_state.selected_scenario['scenario_name']}")
+        
+        st.metric("Total Distance (km)", f"{results['total_distance']:.2f}")
+        st.metric("Total Demand Delivered", results['total_demand'])
+        st.metric("Capacity Utilization", f"{results['capacity_utilization']:.2f}%")
+        
+        st.markdown("### Route Summary")
+        st.dataframe(pd.DataFrame(results['route_summary']))
+        
+        st.markdown("Return to [Scenario Management](main.py) to re-run or select another.")
+        
+        if st.button("Back to Scenarios"):
+            st.session_state.app_mode = 'scenario_management'
+            st.switch_page("main.py")
+        
         st.stop()
+
+        if st.session_state.selected_scenario is None:
+            st.error("No scenario selected. Please select a scenario first.")
+            st.session_state.app_mode = 'scenario_management'
+            st.switch_page("main.py")
+        
+        try:
+            from .scenario_manager import get_scenario_by_id
+        except ImportError:
+            from scenario_manager import get_scenario_by_id
+            
+        scenario_id = st.session_state.selected_scenario.get('scenario_id')
+        if scenario_id:
+            fresh_scenario = get_scenario_by_id(scenario_id)
+            if fresh_scenario:
+                st.session_state.selected_scenario = fresh_scenario
+                st.session_state.optimization_results = fresh_scenario.get('optimization_results', {})
+                add_log_message(f"Loaded optimization results from disk for scenario {fresh_scenario.get('scenario_name')}")
+        
+        st.title("Scenario Results")
+        st.success(f"Viewing results for scenario: {st.session_state.selected_scenario['scenario_name']}")
+        
+        scenario_results = st.session_state.optimization_results
+        
+        if not scenario_results:
+            st.error("No results found for this scenario.")
+            if st.button("Return to Scenario Management"):
+                st.session_state.app_mode = 'scenario_management'
+                st.switch_page("main.py")
+            st.stop()
     
     route_info = scenario_results.get('route_info')
     solution_data = scenario_results.get('solution_data')
@@ -318,7 +332,7 @@ if st.session_state.app_mode == 'scenario_comparison':
 
 if st.session_state.app_mode == 'optimization':
     if not st.session_state.get("optimization_results") and st.session_state.get("selected_scenario"):
-        from scenario_manager import get_scenario_by_id
+        from .scenario_manager import get_scenario_by_id
         scenario = get_scenario_by_id(st.session_state.selected_scenario["scenario_id"])
         st.session_state.optimization_results = scenario.get("optimization_results", {})
         st.toast("✅ Optimization results loaded in main.py")
@@ -329,7 +343,7 @@ if st.session_state.app_mode == 'optimization':
         st.session_state.app_mode = 'scenario_management'
         st.switch_page("main.py")
     
-    from scenario_manager import get_scenario_by_id
+    from .scenario_manager import get_scenario_by_id
     scenario_id = st.session_state.selected_scenario.get('scenario_id')
     if scenario_id:
         fresh_scenario = get_scenario_by_id(scenario_id)
@@ -379,7 +393,7 @@ if st.session_state.app_mode == 'chat_assistant':
         st.session_state.app_mode = 'snapshot_management'
         st.switch_page("main.py")
     
-    from snapshot_manager import get_snapshot_by_id
+    from .snapshot_manager import get_snapshot_by_id
     snapshot_id = st.session_state.selected_snapshot.get('snapshot_id')
     if snapshot_id:
         fresh_snapshot = get_snapshot_by_id(snapshot_id)
@@ -451,18 +465,21 @@ if st.session_state.selected_df is not None or use_sample_data:
         """Add a message to the log with timestamp and level"""
         timestamp = datetime.now().strftime("%H:%M:%S")
         if level == "INFO":
-            logger.info(message)
+            logging.info(message)
             formatted_message = f"{timestamp} - INFO: {message}"
         elif level == "ERROR":
-            logger.error(message)
+            logging.error(message)
             formatted_message = f"{timestamp} - ERROR: {message}"
         elif level == "WARNING":
-            logger.warning(message)
+            logging.warning(message)
             formatted_message = f"{timestamp} - WARNING: {message}"
         else:
-            logger.debug(message)
+            logging.debug(message)
             formatted_message = f"{timestamp} - DEBUG: {message}"
         
+        if 'log_messages' not in st.session_state:
+            st.session_state.log_messages = []
+            
         st.session_state.log_messages.append(formatted_message)
         
         return message
