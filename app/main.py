@@ -47,14 +47,13 @@ except ImportError:
     FOLIUM_AVAILABLE = False
     st.warning("streamlit-folium package not available. Folium maps will be disabled. Please use Plotly maps instead.")
 
-from app.utils.map_utils import create_distance_matrix, create_folium_map, create_plotly_map
-from app.utils.file_utils import get_download_link
-from app.solver import solve_cvrp, get_route_info
-from app.nlp_processor import process_query
-from app.input_repository import input_repository_page
-from app.snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
-from app.scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
-from app.scenario_comparison import scenario_comparison_ui
+from .utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
+from .solver import solve_cvrp, get_route_info
+from .nlp_processor import process_query
+from .input_repository import input_repository_page
+from .snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
+from .scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
+from .scenario_comparison import scenario_comparison_ui
 
 logging.basicConfig(
     level=logging.INFO,
@@ -86,19 +85,19 @@ with st.sidebar:
     
     if st.button("Input Repository", key="nav_input_repo", use_container_width=True):
         st.session_state.app_mode = 'input_repository'
-        st.rerun()
+        st.switch_page("main.py")
     
     if st.button("Snapshot Management", key="nav_snapshot", use_container_width=True):
         if st.session_state.selected_file is not None:
             st.session_state.app_mode = 'snapshot_management'
-            st.rerun()
+            st.switch_page("main.py")
         else:
             st.error("Please select an input file first")
     
     if st.button("Scenario Management", key="nav_scenario", use_container_width=True):
         if st.session_state.selected_snapshot is not None:
             st.session_state.app_mode = 'scenario_management'
-            st.rerun()
+            st.switch_page("main.py")
         else:
             st.error("Please select a snapshot first")
 
@@ -109,7 +108,7 @@ if st.session_state.app_mode == 'input_repository':
         st.session_state.selected_file = selected_file
         st.session_state.selected_df = df
         st.session_state.app_mode = 'snapshot_management'
-        st.rerun()
+        st.switch_page("main.py")
     
     st.stop()
 
@@ -117,7 +116,7 @@ if st.session_state.app_mode == 'snapshot_management':
     if st.session_state.selected_file is None:
         st.error("No input file selected. Please select an input file first.")
         st.session_state.app_mode = 'input_repository'
-        st.rerun()
+        st.switch_page("main.py")
         
     selected_snapshot, create_scenario = snapshot_management_ui(st.session_state.selected_file)
     
@@ -126,11 +125,11 @@ if st.session_state.app_mode == 'snapshot_management':
         
         if create_scenario:
             st.session_state.app_mode = 'scenario_management'
-            st.rerun()
+            st.switch_page("main.py")
     
     if st.button("Return to Input Repository"):
         st.session_state.app_mode = 'input_repository'
-        st.rerun()
+        st.switch_page("main.py")
     
     st.stop()
 
@@ -138,7 +137,7 @@ if st.session_state.app_mode == 'scenario_management':
     if st.session_state.selected_snapshot is None:
         st.error("No snapshot selected. Please select a snapshot first.")
         st.session_state.app_mode = 'snapshot_management'
-        st.rerun()
+        st.switch_page("main.py")
         
     selected_scenario, run_optimization = scenario_management_ui(
         snapshot_id=st.session_state.selected_snapshot['snapshot_id'],
@@ -150,22 +149,22 @@ if st.session_state.app_mode == 'scenario_management':
         
         if run_optimization:
             st.session_state.app_mode = 'optimization'
-            st.rerun()
+            st.switch_page("main.py")
     
     # Check if we should view results
     if 'view_scenario_results' in st.session_state and st.session_state.view_scenario_results is not None:
         st.session_state.app_mode = 'view_results'
-        st.rerun()
+        st.switch_page("pages/Scenario_Results.py")
     
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Return to Snapshot Management"):
             st.session_state.app_mode = 'snapshot_management'
-            st.rerun()
+            st.switch_page("main.py")
     with col2:
         if st.button("Return to Input Repository"):
             st.session_state.app_mode = 'input_repository'
-            st.rerun()
+            st.switch_page("main.py")
     
     st.stop()
 
@@ -173,7 +172,7 @@ if st.session_state.app_mode == 'scenario_comparison':
     if st.session_state.selected_snapshot is None:
         st.error("No snapshot selected. Please select a snapshot first.")
         st.session_state.app_mode = 'snapshot_management'
-        st.rerun()
+        st.switch_page("main.py")
     
     scenario_comparison_ui(
         snapshot_id=st.session_state.selected_snapshot['snapshot_id'],
@@ -186,17 +185,17 @@ if st.session_state.app_mode == 'chat_assistant':
     if st.session_state.selected_snapshot is None:
         st.error("No snapshot selected. Please select a snapshot first.")
         st.session_state.app_mode = 'snapshot_management'
-        st.rerun()
+        st.switch_page("main.py")
     
     st.title(f"Chat Assistant for {st.session_state.selected_snapshot['snapshot_name']}")
     st.markdown("Ask questions about scenarios in this snapshot or compare scenario results.")
     
     if st.button("Return to Snapshot Management"):
         st.session_state.app_mode = 'snapshot_management'
-        st.rerun()
+        st.switch_page("main.py")
     
     st.session_state.app_mode = 'chat_assistant'
-    st.rerun()
+    st.switch_page("pages/Chat_Assistant.py")
     st.stop()
 
 st.title("Capacitated Vehicle Routing Problem (CVRP) Solver")
@@ -828,7 +827,7 @@ if st.session_state.selected_df is not None or use_sample_data:
                     
                     if st.button("Open Chat Assistant", key="open_chat_button"):
                         st.session_state.app_mode = 'chat_assistant'
-                        st.rerun()
+                        st.switch_page("main.py")
                 
             except Exception as e:
                 error_msg = f"An error occurred in the chat interface: {str(e)}"
