@@ -33,7 +33,7 @@ def get_scenarios_dir():
     os.makedirs(repo_dir, exist_ok=True)
     return repo_dir
 
-def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, constraints=None, constraint_prompt=None, constraint_analysis=None):
+def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, constraints=None, constraint_prompt=None, constraint_analysis=None, prompt_history=None):
     """
     Save a scenario configuration to a JSON file.
     
@@ -45,6 +45,7 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
         constraints: Optional text constraints for this scenario
         constraint_prompt: Optional custom prompt for constraint handling
         constraint_analysis: Optional analysis of the constraint prompt
+        prompt_history: Optional list of dicts containing previous prompt attempts and their analyses
         
     Returns:
         dict: Metadata about the saved scenario
@@ -66,6 +67,7 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
         "constraints": constraints,
         "constraint_prompt": constraint_prompt,
         "constraint_analysis": constraint_analysis,
+        "prompt_history": prompt_history if prompt_history else [],
         "optimization_results": None
     }
     
@@ -178,6 +180,17 @@ def update_scenario_results(scenario_id, results):
             'timestamp': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         
+        # Add implementation notes to the last prompt history entry if it exists
+        if (scenario_data.get('prompt_history') and 
+            len(scenario_data['prompt_history']) > 0 and 
+            results.get('solution_data', {}) and 
+            results['solution_data'].get('implementation_notes')):
+            
+            last_prompt = scenario_data['prompt_history'][-1]
+            if not last_prompt.get('implementation_notes'):
+                last_prompt['implementation_notes'] = results['solution_data']['implementation_notes']
+                scenario_data['prompt_history'][-1] = last_prompt
+        
         scenario_data["optimization_results"] = clean_results
         
         scenarios_dir = get_scenarios_dir()
@@ -233,12 +246,22 @@ def scenario_management_ui(snapshot_id, snapshot_name):
             help="This is for documentation purposes only and doesn't affect the optimization."
         )
         
+        # Check if we have a retried prompt
+        default_prompt = st.session_state.get('retry_prompt', '')
+        if default_prompt:
+            st.info("📝 Retrying previous prompt")
+            
         constraint_prompt = st.text_input(
             "Custom Constraint Prompt (optional)",
+            value=default_prompt,
             placeholder="Enter a custom prompt for constraint handling",
             help="Specify custom instructions for handling constraints in natural language",
             key="constraint_prompt"
         )
+        
+        # Clear retry prompt after using it
+        if default_prompt:
+            st.session_state.retry_prompt = ''
         
         # Initialize session state for constraint analysis if not exists
         if 'constraint_analysis' not in st.session_state:
@@ -265,6 +288,15 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                         mode="constraint_extraction"
                     )
                     
+                    # Add implementation notes if constraints were extracted
+                    if constraint_analysis.get('constraints'):
+                        implementation_notes = []
+                        for constraint in constraint_analysis['constraints']:
+                            # Here we could add logic to detect specific constraint types
+                            # and how they map to the solver
+                            implementation_notes.append(f"- {constraint}")
+                        constraint_analysis['implementation_notes'] = "\n".join(implementation_notes)
+                    
                     st.session_state.constraint_analysis = constraint_analysis
                     st.session_state.last_prompt = constraint_prompt
             
@@ -278,6 +310,10 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                 if st.session_state.constraint_analysis.get("summary"):
                     st.markdown("#### 📌 Summary")
                     st.markdown(st.session_state.constraint_analysis["summary"])
+                
+                if st.session_state.constraint_analysis.get("implementation_notes"):
+                    st.markdown("#### 🧩 Implementation Details")
+                    st.markdown(st.session_state.constraint_analysis["implementation_notes"])
                 
                 if st.session_state.constraint_analysis.get("notes"):
                     st.markdown("#### 📓 Implementation Notes")
@@ -294,10 +330,11 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                     retry = st.button("🔁 Retry with New Prompt")
                 
                 if retry:
-                    # Store current attempt in history
+                    # Store current attempt in history with accepted=False
                     st.session_state.constraint_history.append({
                         'prompt': constraint_prompt,
-                        'analysis': st.session_state.constraint_analysis
+                        'analysis': st.session_state.constraint_analysis,
+                        'accepted': False
                     })
                     # Clear current analysis to trigger reprocessing
                     st.session_state.constraint_analysis = None
@@ -306,6 +343,14 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                 
                 if accept:
                     with st.spinner("Saving scenario..."):
+                        # Store current attempt in history with accepted=True
+                        current_attempt = {
+                            'prompt': constraint_prompt,
+                            'analysis': st.session_state.constraint_analysis,
+                            'accepted': True
+                        }
+                        prompt_history = st.session_state.constraint_history + [current_attempt]
+                        
                         scenario_data = save_scenario(
                             snapshot_id=snapshot_id,
                             scenario_name=scenario_name,
@@ -313,7 +358,8 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                             vehicle_capacity=vehicle_capacity,
                             constraints=constraints if constraints else None,
                             constraint_prompt=constraint_prompt,
-                            constraint_analysis=st.session_state.constraint_analysis
+                            constraint_analysis=st.session_state.constraint_analysis,
+                            prompt_history=prompt_history
                         )
                         
                         # Add the scenario to the snapshot's list of scenarios

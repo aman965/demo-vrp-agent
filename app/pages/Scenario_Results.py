@@ -102,6 +102,53 @@ with col3:
 with col4:
     st.metric("Capacity Utilization", f"{results.get('capacity_utilization', 0):.1f}%")
 
+# Add Customization Considered button and expander
+if st.button("🎯 Customization Considered"):
+    with st.expander("Customization History", expanded=True):
+        if scenario.get('prompt_history') and len(scenario['prompt_history']) > 0:
+            for i, attempt in enumerate(scenario['prompt_history'], 1):
+                # Create a header row with attempt number and status badge
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.markdown(f"#### Attempt {i}")
+                with col2:
+                    if attempt.get('accepted', False):
+                        st.success("✅ Accepted")
+                    else:
+                        st.warning("❌ Rejected")
+                
+                st.markdown("**🔍 Prompt:**")
+                st.markdown(f"```\n{attempt.get('prompt', 'N/A')}\n```")
+                
+                st.markdown("**📋 Interpretation:**")
+                if attempt.get('analysis'):
+                    if attempt['analysis'].get('summary'):
+                        st.markdown(attempt['analysis']['summary'])
+                    
+                    if attempt['analysis'].get('constraints'):
+                        st.markdown("**Extracted Constraints:**")
+                        for j, constraint in enumerate(attempt['analysis']['constraints'], 1):
+                            st.markdown(f"{j}. {constraint}")
+                    
+                    if attempt['analysis'].get('notes'):
+                        st.markdown("**Implementation Notes:**")
+                        for note in attempt['analysis']['notes'].split('\n'):
+                            if note.strip():
+                                st.markdown(f"- {note.strip()}")
+                else:
+                    st.markdown("*No interpretation available*")
+                
+                # Display solver implementation notes if available
+                if attempt.get('implementation_notes'):
+                    st.markdown("**🧩 How Constraints Were Applied:**")
+                    for note in attempt['implementation_notes']:
+                        st.markdown(f"- {note}")
+                
+                if i < len(scenario['prompt_history']):
+                    st.markdown("---")
+        else:
+            st.info("No custom constraints were added to this scenario.")
+
 # Display route summary
 st.subheader("Route Summary")
 if 'route_summary' in results:
