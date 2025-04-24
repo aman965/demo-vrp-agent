@@ -143,31 +143,31 @@ st.subheader("Visualization Comparison")
 
 fig_distance = px.bar(
     combined_kpi_df, 
-    x='Scenario', 
-    y='Total Distance', 
-    color='Scenario',
-    title='Total Distance by Scenario',
-    labels={'Total Distance': 'Distance (km)'}
+    x='Vehicle', 
+    y='Distance', 
+    color='Vehicle',
+    title='Distance by Vehicle',
+    labels={'Distance': 'Distance (km)'}
 )
 st.plotly_chart(fig_distance, use_container_width=True)
 
 fig_util = px.bar(
     combined_kpi_df, 
-    x='Scenario', 
-    y='Capacity Utilization (%)', 
-    color='Scenario',
-    title='Capacity Utilization by Scenario',
-    labels={'Capacity Utilization (%)': 'Utilization (%)'}
+    x='Vehicle', 
+    y='Utilization', 
+    color='Vehicle',
+    title='Capacity Utilization by Vehicle',
+    labels={'Utilization': 'Utilization (%)'}
 )
 fig_util.update_layout(yaxis_range=[0, 100])
 st.plotly_chart(fig_util, use_container_width=True)
 
 fig_customers = px.bar(
     combined_kpi_df, 
-    x='Scenario', 
-    y='Customers Served', 
-    color='Scenario',
-    title='Customers Served by Scenario'
+    x='Vehicle', 
+    y='Customers', 
+    color='Vehicle',
+    title='Customers Served by Vehicle'
 )
 st.plotly_chart(fig_customers, use_container_width=True)
 
