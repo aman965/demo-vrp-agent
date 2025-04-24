@@ -6,9 +6,9 @@ import json
 import uuid
 import numpy as np
 from pathlib import Path
-from app.nlp_processor import process_query
-from app.snapshot_manager import get_snapshot_by_id
-from app.utils.json_utils import CustomJSONEncoder
+from nlp_processor import process_query
+from snapshot_manager import get_snapshot_by_id
+from utils.json_utils import CustomJSONEncoder
 
 def get_scenarios_dir():
     """Get the path to the scenarios directory, creating it if it doesn't exist."""
