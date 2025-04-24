@@ -15,7 +15,22 @@ import sys
 import uuid
 import json
 
-if __name__ == "__main__" or os.environ.get("STREAMLIT_RUN_APP") == "1":
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+try:
+    from .utils import safe_get_dataframe_value, ensure_dataframe, add_log_message, get_input_file_path_by_id
+    from .utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
+    from .solver import solve_cvrp, get_route_info
+    from .nlp_processor import process_query
+    from .input_repository import input_repository_page
+    from .snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
+    from .scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
+    from .scenario_comparison import scenario_comparison_ui
+    
+    print("Using relative imports in app/main.py")
+except ImportError:
     from utils import safe_get_dataframe_value, ensure_dataframe, add_log_message, get_input_file_path_by_id
     from utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
     from solver import solve_cvrp, get_route_info
@@ -25,6 +40,9 @@ if __name__ == "__main__" or os.environ.get("STREAMLIT_RUN_APP") == "1":
     from scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
     from scenario_comparison import scenario_comparison_ui
     
+    print("Using direct imports in app/main.py")
+
+if __name__ == "__main__":
     st.set_page_config(
         page_title="Vehicle Routing Problem Solver",
         page_icon="🚚",
