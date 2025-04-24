@@ -119,17 +119,19 @@ st.subheader("Key Performance Indicators Comparison")
 
 comparison_data = []
 for scenario in selected_scenarios:
-    if 'optimization_results' in scenario and 'kpi_df' in scenario['optimization_results']:
-        kpi_df = pd.DataFrame(scenario['optimization_results']['kpi_df'])
+    if 'optimization_results' in scenario and 'route_info' in scenario['optimization_results']:
+        # Extract route information
+        route_info = pd.DataFrame(scenario['optimization_results']['route_info'])
         
-        kpi_df['Scenario'] = scenario['scenario_name']
+        # Add scenario identifier
+        route_info['Scenario'] = scenario['scenario_name']
         
-        comparison_data.append(kpi_df)
+        comparison_data.append(route_info)
     else:
-        st.warning(f"Scenario '{scenario['scenario_name']}' has no KPI data.")
+        st.warning(f"Scenario '{scenario['scenario_name']}' has no route information.")
 
 if not comparison_data:
-    st.error("No KPI data available for the selected scenarios.")
+    st.error("No route information available for the selected scenarios.")
     if st.button("Return to Scenario Management"):
         st.session_state.app_mode = 'scenario_management'
         st.switch_page("main.py")
@@ -141,32 +143,38 @@ st.dataframe(combined_kpi_df)
 
 st.subheader("Visualization Comparison")
 
+# Create a bar chart for total distance
 fig_distance = px.bar(
-    combined_kpi_df, 
-    x='Vehicle', 
-    y='Distance', 
-    color='Vehicle',
+    combined_kpi_df,
+    x='Vehicle ID',  # or the actual column name for vehicle
+    y='Distance',    # or the actual column name for distance
+    color='Scenario',
+    barmode='group',
     title='Distance by Vehicle',
     labels={'Distance': 'Distance (km)'}
 )
 st.plotly_chart(fig_distance, use_container_width=True)
 
+# Create a bar chart for capacity utilization
 fig_util = px.bar(
-    combined_kpi_df, 
-    x='Vehicle', 
-    y='Utilization', 
-    color='Vehicle',
+    combined_kpi_df,
+    x='Vehicle ID',  # or the actual column name for vehicle
+    y='Utilization',  # or the actual column name for utilization
+    color='Scenario',
+    barmode='group',
     title='Capacity Utilization by Vehicle',
     labels={'Utilization': 'Utilization (%)'}
 )
 fig_util.update_layout(yaxis_range=[0, 100])
 st.plotly_chart(fig_util, use_container_width=True)
 
+# Create a bar chart for customers served
 fig_customers = px.bar(
-    combined_kpi_df, 
-    x='Vehicle', 
-    y='Customers', 
-    color='Vehicle',
+    combined_kpi_df,
+    x='Vehicle ID',  # or the actual column name for vehicle
+    y='Customers',   # or the actual column name for customers
+    color='Scenario',
+    barmode='group',
     title='Customers Served by Vehicle'
 )
 st.plotly_chart(fig_customers, use_container_width=True)
