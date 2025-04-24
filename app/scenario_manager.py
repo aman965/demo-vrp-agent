@@ -32,7 +32,7 @@ def get_scenarios_dir():
     os.makedirs(repo_dir, exist_ok=True)
     return repo_dir
 
-def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, constraints=None):
+def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, constraints=None, constraint_prompt=None):
     """
     Save a scenario configuration to a JSON file.
     
@@ -42,6 +42,7 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
         num_vehicles: Number of vehicles for this scenario
         vehicle_capacity: Vehicle capacity for this scenario
         constraints: Optional text constraints for this scenario
+        constraint_prompt: Optional custom prompt for constraint handling
         
     Returns:
         dict: Metadata about the saved scenario
@@ -61,6 +62,7 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
             "vehicle_capacity": vehicle_capacity
         },
         "constraints": constraints,
+        "constraint_prompt": constraint_prompt,
         "optimization_results": None
     }
     
@@ -228,6 +230,12 @@ def scenario_management_ui(snapshot_id, snapshot_name):
             help="This is for documentation purposes only and doesn't affect the optimization."
         )
         
+        constraint_prompt = st.text_input(
+            "Custom Constraint Prompt (optional)",
+            placeholder="Enter a custom prompt for constraint handling",
+            help="Specify custom instructions for handling constraints in natural language"
+        )
+        
         if st.button("Save Scenario"):
             with st.spinner("Saving scenario..."):
                 scenario_data = save_scenario(
@@ -235,7 +243,8 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                     scenario_name=scenario_name,
                     num_vehicles=num_vehicles,
                     vehicle_capacity=vehicle_capacity,
-                    constraints=constraints if constraints else None
+                    constraints=constraints if constraints else None,
+                    constraint_prompt=constraint_prompt if constraint_prompt else None
                 )
                 
                 # Add the scenario to the snapshot's list of scenarios
