@@ -12,8 +12,10 @@ enableXsrfProtection = false
 enableStaticServing = true
 
 [ui]
-hideSidebarNav = true
 hideTopBar = true
+
+[client]
+showSidebarNavigation = false
 
 [app]
 target = "main.py"
