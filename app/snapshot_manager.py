@@ -7,21 +7,7 @@ import uuid
 import numpy as np
 from pathlib import Path
 import sys
-
-class CustomJSONEncoder(json.JSONEncoder):
-    """Custom JSON encoder to handle non-serializable objects."""
-    def default(self, obj):
-        if isinstance(obj, pd.DataFrame):
-            return obj.to_dict(orient='records')
-        if isinstance(obj, np.integer):
-            return int(obj)
-        if isinstance(obj, np.floating):
-            return float(obj)
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        if pd.isna(obj):
-            return None
-        return super().default(obj)
+from app.utils.json_utils import CustomJSONEncoder
 
 def get_snapshots_dir():
     """Get the path to the snapshots directory, creating it if it doesn't exist."""
