@@ -1,6 +1,6 @@
 import streamlit as st
-import sys
 import os
+import sys
 
 st.set_page_config(
     page_title="Vehicle Routing Problem Solver",
@@ -9,19 +9,22 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-app_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app")
-if app_dir not in sys.path:
-    sys.path.insert(0, app_dir)
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
 os.environ["STREAMLIT_RUN_APP"] = "1"
 
 try:
-    import app.main
-    print("Successfully imported app.main")
+    from app import main as app_main
+    print("Successfully imported app.main as app_main")
 except ImportError as e:
-    print(f"Error importing app.main: {e}")
-    st.error(f"Failed to import application modules: {e}")
+    try:
+        import app.main
+        print("Successfully imported app.main")
+    except ImportError as e2:
+        error_msg = f"Failed to import application modules: {e2}"
+        print(error_msg)
+        st.error(error_msg)
+        
+        st.error("Python path: " + str(sys.path))
+        st.error("Current directory: " + os.getcwd())
+        st.error("Directory contents: " + str(os.listdir('.')))
+        if os.path.exists('app'):
+            st.error("App directory contents: " + str(os.listdir('app')))
