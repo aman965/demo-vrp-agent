@@ -85,19 +85,19 @@ with st.sidebar:
     
     if st.button("Input Repository", key="nav_input_repo", use_container_width=True):
         st.session_state.app_mode = 'input_repository'
-        st.switch_page("pages/Input_Repository.py")
+        st.rerun()
     
     if st.button("Snapshot Management", key="nav_snapshot", use_container_width=True):
         if st.session_state.selected_file is not None:
             st.session_state.app_mode = 'snapshot_management'
-            st.switch_page("pages/Snapshot_Management.py")
+            st.rerun()
         else:
             st.error("Please select an input file first")
     
     if st.button("Scenario Management", key="nav_scenario", use_container_width=True):
         if st.session_state.selected_snapshot is not None:
             st.session_state.app_mode = 'scenario_management'
-            st.switch_page("pages/Scenario_Management.py")
+            st.rerun()
         else:
             st.error("Please select a snapshot first")
 
@@ -108,7 +108,7 @@ if st.session_state.app_mode == 'input_repository':
         st.session_state.selected_file = selected_file
         st.session_state.selected_df = df
         st.session_state.app_mode = 'snapshot_management'
-        st.switch_page("main.py")
+        st.rerun()
     
     st.stop()
 
@@ -116,7 +116,7 @@ if st.session_state.app_mode == 'snapshot_management':
     if st.session_state.selected_file is None:
         st.error("No input file selected. Please select an input file first.")
         st.session_state.app_mode = 'input_repository'
-        st.switch_page("main.py")
+        st.rerun()
         
     selected_snapshot, create_scenario = snapshot_management_ui(st.session_state.selected_file)
     
@@ -125,11 +125,11 @@ if st.session_state.app_mode == 'snapshot_management':
         
         if create_scenario:
             st.session_state.app_mode = 'scenario_management'
-            st.switch_page("main.py")
+            st.rerun()
     
     if st.button("Return to Input Repository"):
         st.session_state.app_mode = 'input_repository'
-        st.switch_page("main.py")
+        st.rerun()
     
     st.stop()
 
@@ -137,7 +137,7 @@ if st.session_state.app_mode == 'scenario_management':
     if st.session_state.selected_snapshot is None:
         st.error("No snapshot selected. Please select a snapshot first.")
         st.session_state.app_mode = 'snapshot_management'
-        st.switch_page("main.py")
+        st.rerun()
         
     selected_scenario, run_optimization = scenario_management_ui(
         snapshot_id=st.session_state.selected_snapshot['snapshot_id'],
@@ -149,7 +149,7 @@ if st.session_state.app_mode == 'scenario_management':
         
         if run_optimization:
             st.session_state.app_mode = 'optimization'
-            st.switch_page("main.py")
+            st.rerun()
     
     # Check if we should view results
     if 'view_scenario_results' in st.session_state and st.session_state.view_scenario_results is not None:
@@ -160,11 +160,11 @@ if st.session_state.app_mode == 'scenario_management':
     with col1:
         if st.button("Return to Snapshot Management"):
             st.session_state.app_mode = 'snapshot_management'
-            st.switch_page("main.py")
+            st.rerun()
     with col2:
         if st.button("Return to Input Repository"):
             st.session_state.app_mode = 'input_repository'
-            st.switch_page("main.py")
+            st.rerun()
     
     st.stop()
 
@@ -172,7 +172,7 @@ if st.session_state.app_mode == 'scenario_comparison':
     if st.session_state.selected_snapshot is None:
         st.error("No snapshot selected. Please select a snapshot first.")
         st.session_state.app_mode = 'snapshot_management'
-        st.switch_page("main.py")
+        st.rerun()
     
     scenario_comparison_ui(
         snapshot_id=st.session_state.selected_snapshot['snapshot_id'],
@@ -185,14 +185,14 @@ if st.session_state.app_mode == 'chat_assistant':
     if st.session_state.selected_snapshot is None:
         st.error("No snapshot selected. Please select a snapshot first.")
         st.session_state.app_mode = 'snapshot_management'
-        st.switch_page("main.py")
+        st.rerun()
     
     st.title(f"Chat Assistant for {st.session_state.selected_snapshot['snapshot_name']}")
     st.markdown("Ask questions about scenarios in this snapshot or compare scenario results.")
     
     if st.button("Return to Snapshot Management"):
         st.session_state.app_mode = 'snapshot_management'
-        st.switch_page("main.py")
+        st.rerun()
     
     st.session_state.app_mode = 'chat_assistant'
     st.switch_page("pages/Chat_Assistant.py")
