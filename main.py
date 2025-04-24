@@ -85,19 +85,19 @@ with st.sidebar:
     
     if st.button("Input Repository", key="nav_input_repo", use_container_width=True):
         st.session_state.app_mode = 'input_repository'
-        st.switch_page("main.py")
+        st.switch_page("pages/Input_Repository.py")
     
     if st.button("Snapshot Management", key="nav_snapshot", use_container_width=True):
         if st.session_state.selected_file is not None:
             st.session_state.app_mode = 'snapshot_management'
-            st.switch_page("main.py")
+            st.switch_page("pages/Snapshot_Management.py")
         else:
             st.error("Please select an input file first")
     
     if st.button("Scenario Management", key="nav_scenario", use_container_width=True):
         if st.session_state.selected_snapshot is not None:
             st.session_state.app_mode = 'scenario_management'
-            st.switch_page("main.py")
+            st.switch_page("pages/Scenario_Management.py")
         else:
             st.error("Please select a snapshot first")
 
