@@ -6,6 +6,7 @@ import json
 import uuid
 import numpy as np
 from pathlib import Path
+from app.nlp_processor import process_query
 
 class CustomJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder to handle non-serializable objects."""
@@ -32,7 +33,7 @@ def get_scenarios_dir():
     os.makedirs(repo_dir, exist_ok=True)
     return repo_dir
 
-def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, constraints=None, constraint_prompt=None):
+def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, constraints=None, constraint_prompt=None, constraint_analysis=None):
     """
     Save a scenario configuration to a JSON file.
     
@@ -43,6 +44,7 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
         vehicle_capacity: Vehicle capacity for this scenario
         constraints: Optional text constraints for this scenario
         constraint_prompt: Optional custom prompt for constraint handling
+        constraint_analysis: Optional analysis of the constraint prompt
         
     Returns:
         dict: Metadata about the saved scenario
@@ -63,6 +65,7 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
         },
         "constraints": constraints,
         "constraint_prompt": constraint_prompt,
+        "constraint_analysis": constraint_analysis,
         "optimization_results": None
     }
     
@@ -236,15 +239,41 @@ def scenario_management_ui(snapshot_id, snapshot_name):
             help="Specify custom instructions for handling constraints in natural language"
         )
         
+        # Process constraint prompt if provided
+        constraint_analysis = None
+        if constraint_prompt:
+            with st.expander("Constraint Analysis", expanded=True):
+                st.info("Analyzing constraint prompt...")
+                constraint_analysis = process_query(
+                    query=constraint_prompt,
+                    context=f"Scenario configuration:\n- Number of vehicles: {num_vehicles}\n- Vehicle capacity: {vehicle_capacity}",
+                    mode="constraint_extraction"
+                )
+                
+                if constraint_analysis.get("constraints"):
+                    st.markdown("#### Extracted Constraints")
+                    for constraint in constraint_analysis["constraints"]:
+                        st.markdown(f"- {constraint}")
+                
+                if constraint_analysis.get("summary"):
+                    st.markdown("#### Summary")
+                    st.markdown(constraint_analysis["summary"])
+                
+                if constraint_analysis.get("notes"):
+                    st.markdown("#### Notes")
+                    st.markdown(constraint_analysis["notes"])
+        
         if st.button("Save Scenario"):
             with st.spinner("Saving scenario..."):
+                # Include constraint analysis in the scenario data if available
                 scenario_data = save_scenario(
                     snapshot_id=snapshot_id,
                     scenario_name=scenario_name,
                     num_vehicles=num_vehicles,
                     vehicle_capacity=vehicle_capacity,
                     constraints=constraints if constraints else None,
-                    constraint_prompt=constraint_prompt if constraint_prompt else None
+                    constraint_prompt=constraint_prompt if constraint_prompt else None,
+                    constraint_analysis=constraint_analysis if constraint_analysis else None
                 )
                 
                 # Add the scenario to the snapshot's list of scenarios
