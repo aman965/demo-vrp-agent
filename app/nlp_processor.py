@@ -139,7 +139,7 @@ def query_gpt_with_context(query, context):
         return "Sorry, I can't process your query because the OpenAI API key is not configured in Streamlit secrets. Please add the OPENAI_API_KEY to your secrets."
     
     try:
-        system_message = f"""
+        system_message = r"""
         You are an assistant for a Capacitated Vehicle Routing Problem (CVRP) solver application.
         
         PROBLEM DESCRIPTION:
@@ -148,19 +148,19 @@ def query_gpt_with_context(query, context):
         
         AVAILABLE DATA:
         1. Route Information - Shows the sequence of stops for each vehicle
-        {context['route_info_str']}
+        """ + context['route_info_str'] + r"""
         
         2. KPI Data - Performance metrics for each vehicle
-        {context['kpi_df_str']}
+        """ + context['kpi_df_str'] + r"""
         
         3. Detailed Route Data - Detailed information about each stop
-        {context['detailed_df_str']}
+        """ + context['detailed_df_str'] + r"""
         
         4. Configuration:
-        - Vehicle Capacity: {context['vehicle_capacity']}
-        - Number of Vehicles: {context['num_vehicles']}
+        - Vehicle Capacity: """ + str(context['vehicle_capacity']) + r"""
+        - Number of Vehicles: """ + str(context['num_vehicles']) + r"""
         
-        {f"5. Additional Context:\n{context['additional_context']}" if 'additional_context' in context else ""}
+        """ + (f"5. Additional Context:\n{context['additional_context']}" if 'additional_context' in context else "") + r"""
         
         YOUR TASK:
         Answer the user's query about the optimization results. If the query requires calculations or data extraction,
@@ -168,8 +168,8 @@ def query_gpt_with_context(query, context):
         
         Available data structures:
         - route_info: List of dictionaries, each representing a vehicle route. Each dictionary has keys: 'vehicle_id', 'stops', 'total_distance', 'total_demand', and 'route_text'.
-        - kpi_df: DataFrame with KPI information (columns: {', '.join(context['kpi_columns'])})
-        - detailed_df: DataFrame with detailed route information (columns: {', '.join(context['detailed_columns'])})
+        - kpi_df: DataFrame with KPI information (columns: """ + ', '.join(context['kpi_columns']) + r""")
+        - detailed_df: DataFrame with detailed route information (columns: """ + ', '.join(context['detailed_columns']) + r""")
         
         Format your response as follows:
         1. A direct answer to the user's question
@@ -186,6 +186,7 @@ def query_gpt_with_context(query, context):
         5. "Show a bar chart of demand per vehicle"
         
         For distance calculations between geographical coordinates, you can use the haversine function:
+        
         ```python
         def haversine(lon1, lat1, lon2, lat2):
             # Calculate the great circle distance between two points 
@@ -205,7 +206,7 @@ def query_gpt_with_context(query, context):
             
             headers = {
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}"
+                "Authorization": "Bearer " + api_key
             }
             
             payload = {
@@ -227,15 +228,15 @@ def query_gpt_with_context(query, context):
             if response.status_code == 200:
                 return response.json()["choices"][0]["message"]["content"]
             else:
-                error_msg = f"API call failed with status code {response.status_code}: {response.text}"
+                error_msg = "API call failed with status code " + str(response.status_code) + ": " + response.text
                 st.error(error_msg)
-                return f"I'm sorry, I encountered an error while processing your query: {error_msg}"
+                return "I'm sorry, I encountered an error while processing your query: " + error_msg
         except Exception as e:
-            st.error(f"OpenAI API call failed: {str(e)}")
-            return f"I'm sorry, I encountered an error while processing your query: {str(e)}"
+            st.error("OpenAI API call failed: " + str(e))
+            return "I'm sorry, I encountered an error while processing your query: " + str(e)
     
     except Exception as e:
-        return f"Error querying GPT: {str(e)}"
+        return "Error querying GPT: " + str(e)
 
 def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, vehicle_capacity=None):
     """

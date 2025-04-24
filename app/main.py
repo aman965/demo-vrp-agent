@@ -151,6 +151,11 @@ if st.session_state.app_mode == 'scenario_management':
             st.session_state.app_mode = 'optimization'
             st.switch_page("main.py")
     
+    # Check if we should view results
+    if 'view_scenario_results' in st.session_state and st.session_state.view_scenario_results is not None:
+        st.session_state.app_mode = 'view_results'
+        st.switch_page("pages/Scenario_Results.py")
+    
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Return to Snapshot Management"):
@@ -510,10 +515,11 @@ if st.session_state.selected_df is not None or use_sample_data:
                     
                     optimization_results = {
                         'route_info': route_info,
-                        'kpi_df': kpi_df,
-                        'detailed_df': detailed_df,
+                        'kpi_df': kpi_df.to_dict('records') if isinstance(kpi_df, pd.DataFrame) else None,
+                        'detailed_df': detailed_df.to_dict('records') if isinstance(detailed_df, pd.DataFrame) else None,
                         'vehicle_capacity': vehicle_capacity,
-                        'solution_data': solution_data
+                        'solution_data': solution_data,
+                        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     }
                     
                     st.session_state.optimization_results = optimization_results
@@ -528,6 +534,11 @@ if st.session_state.selected_df is not None or use_sample_data:
                             'total_demand': total_demand,
                             'capacity_utilization': capacity_utilization,
                             'route_summary': route_summary,
+                            'route_info': route_info,
+                            'kpi_df': kpi_df.to_dict('records') if isinstance(kpi_df, pd.DataFrame) else None,
+                            'detailed_df': detailed_df.to_dict('records') if isinstance(detailed_df, pd.DataFrame) else None,
+                            'vehicle_capacity': vehicle_capacity,
+                            'solution_data': solution_data,
                             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         }
                         

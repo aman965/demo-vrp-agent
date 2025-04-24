@@ -110,7 +110,7 @@ if 'route_summary' in results:
 
 # Display detailed route information
 st.subheader("Detailed Route Information")
-if 'detailed_df' in results:
+if 'detailed_df' in results and results['detailed_df']:
     detailed_df = pd.DataFrame(results['detailed_df'])
     st.dataframe(detailed_df, use_container_width=True)
 
@@ -118,16 +118,19 @@ if 'detailed_df' in results:
 st.subheader("Route Visualizations")
 
 # Create a map visualization if coordinates are available
-if 'detailed_df' in results and all(col in results['detailed_df'][0] for col in ['latitude', 'longitude']):
+if ('detailed_df' in results and results['detailed_df'] and 
+    len(results['detailed_df']) > 0 and 
+    all(col.lower() in results['detailed_df'][0] for col in ['latitude', 'longitude'])):
+    
     detailed_df = pd.DataFrame(results['detailed_df'])
     
     fig = px.scatter_mapbox(
         detailed_df,
-        lat='latitude',
-        lon='longitude',
-        color='route_id',
-        hover_name='customer_id',
-        hover_data=['demand'],
+        lat='Latitude' if 'Latitude' in detailed_df.columns else 'latitude',
+        lon='Longitude' if 'Longitude' in detailed_df.columns else 'longitude',
+        color='Vehicle' if 'Vehicle' in detailed_df.columns else 'route_id',
+        hover_name='Customer ID' if 'Customer ID' in detailed_df.columns else 'customer_id',
+        hover_data=['Demand' if 'Demand' in detailed_df.columns else 'demand'],
         zoom=10,
         height=600
     )
