@@ -3,7 +3,8 @@ from setuptools import setup, find_packages
 setup(
     name="vrp-app",
     version="0.1.0",
-    packages=find_packages(),
+    package_dir={"": "app"},
+    packages=find_packages(where="app"),
     install_requires=[
         "streamlit>=1.32.0",
         "pandas>=2.2.0",
