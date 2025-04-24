@@ -236,44 +236,107 @@ def scenario_management_ui(snapshot_id, snapshot_name):
         constraint_prompt = st.text_input(
             "Custom Constraint Prompt (optional)",
             placeholder="Enter a custom prompt for constraint handling",
-            help="Specify custom instructions for handling constraints in natural language"
+            help="Specify custom instructions for handling constraints in natural language",
+            key="constraint_prompt"
         )
         
-        # Process constraint prompt if provided
-        constraint_analysis = None
-        if constraint_prompt:
-            with st.expander("Constraint Analysis", expanded=True):
-                st.info("Analyzing constraint prompt...")
-                constraint_analysis = process_query(
-                    query=constraint_prompt,
-                    context=f"Scenario configuration:\n- Number of vehicles: {num_vehicles}\n- Vehicle capacity: {vehicle_capacity}",
-                    mode="constraint_extraction"
-                )
-                
-                if constraint_analysis.get("constraints"):
-                    st.markdown("#### Extracted Constraints")
-                    for constraint in constraint_analysis["constraints"]:
-                        st.markdown(f"- {constraint}")
-                
-                if constraint_analysis.get("summary"):
-                    st.markdown("#### Summary")
-                    st.markdown(constraint_analysis["summary"])
-                
-                if constraint_analysis.get("notes"):
-                    st.markdown("#### Notes")
-                    st.markdown(constraint_analysis["notes"])
+        # Initialize session state for constraint analysis if not exists
+        if 'constraint_analysis' not in st.session_state:
+            st.session_state.constraint_analysis = None
+            st.session_state.constraint_history = []
         
-        if st.button("Save Scenario"):
+        # Process constraint prompt if provided
+        if constraint_prompt:
+            # Only process if prompt changed or Retry clicked
+            if (not st.session_state.constraint_analysis or 
+                constraint_prompt != st.session_state.get('last_prompt', '')):
+                
+                with st.spinner("Analyzing constraint prompt..."):
+                    # Add previous attempts to context if they exist
+                    context = f"Scenario configuration:\n- Number of vehicles: {num_vehicles}\n- Vehicle capacity: {vehicle_capacity}\n"
+                    if st.session_state.constraint_history:
+                        context += "\nPrevious attempts:\n"
+                        for i, prev in enumerate(st.session_state.constraint_history, 1):
+                            context += f"\nAttempt {i}:\n{prev['prompt']}\n"
+                    
+                    constraint_analysis = process_query(
+                        query=constraint_prompt,
+                        context=context,
+                        mode="constraint_extraction"
+                    )
+                    
+                    st.session_state.constraint_analysis = constraint_analysis
+                    st.session_state.last_prompt = constraint_prompt
+            
+            # Display constraint analysis in an expander
+            with st.expander("📋 Constraint Analysis", expanded=True):
+                if st.session_state.constraint_analysis.get("constraints"):
+                    st.markdown("#### 📝 Extracted Constraints")
+                    for i, constraint in enumerate(st.session_state.constraint_analysis["constraints"], 1):
+                        st.markdown(f"{i}. {constraint}")
+                
+                if st.session_state.constraint_analysis.get("summary"):
+                    st.markdown("#### 📌 Summary")
+                    st.markdown(st.session_state.constraint_analysis["summary"])
+                
+                if st.session_state.constraint_analysis.get("notes"):
+                    st.markdown("#### 📓 Implementation Notes")
+                    notes = st.session_state.constraint_analysis["notes"].split('\n')
+                    for note in notes:
+                        if note.strip():
+                            st.markdown(f"- {note.strip()}")
+                
+                # Add Accept and Retry buttons in columns
+                col1, col2 = st.columns(2)
+                with col1:
+                    accept = st.button("✅ Accept and Save Scenario")
+                with col2:
+                    retry = st.button("🔁 Retry with New Prompt")
+                
+                if retry:
+                    # Store current attempt in history
+                    st.session_state.constraint_history.append({
+                        'prompt': constraint_prompt,
+                        'analysis': st.session_state.constraint_analysis
+                    })
+                    # Clear current analysis to trigger reprocessing
+                    st.session_state.constraint_analysis = None
+                    st.session_state.last_prompt = None
+                    st.rerun()
+                
+                if accept:
+                    with st.spinner("Saving scenario..."):
+                        scenario_data = save_scenario(
+                            snapshot_id=snapshot_id,
+                            scenario_name=scenario_name,
+                            num_vehicles=num_vehicles,
+                            vehicle_capacity=vehicle_capacity,
+                            constraints=constraints if constraints else None,
+                            constraint_prompt=constraint_prompt,
+                            constraint_analysis=st.session_state.constraint_analysis
+                        )
+                        
+                        # Add the scenario to the snapshot's list of scenarios
+                        add_scenario_to_snapshot(snapshot_id, scenario_data["scenario_id"])
+                        
+                        st.success(f"Scenario '{scenario_data['scenario_name']}' saved successfully!")
+                        
+                        # Clear constraint history and analysis after successful save
+                        st.session_state.constraint_analysis = None
+                        st.session_state.constraint_history = []
+                        st.session_state.last_prompt = None
+                        
+                        st.rerun()
+        
+        # Only show the regular save button if no constraint prompt is provided
+        elif st.button("Save Scenario"):
             with st.spinner("Saving scenario..."):
-                # Include constraint analysis in the scenario data if available
                 scenario_data = save_scenario(
                     snapshot_id=snapshot_id,
                     scenario_name=scenario_name,
                     num_vehicles=num_vehicles,
                     vehicle_capacity=vehicle_capacity,
-                    constraints=constraints if constraints else None,
-                    constraint_prompt=constraint_prompt if constraint_prompt else None,
-                    constraint_analysis=constraint_analysis if constraint_analysis else None
+                    constraints=constraints if constraints else None
                 )
                 
                 # Add the scenario to the snapshot's list of scenarios
