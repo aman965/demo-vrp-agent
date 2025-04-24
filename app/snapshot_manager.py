@@ -171,7 +171,7 @@ def snapshot_management_ui(input_file):
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.subheader("Create New Snapshot")
+        st.subheader("Create New Scenario")
         
         snapshot_name = st.text_input("Snapshot Name", placeholder="Enter a descriptive name for this snapshot")
         
@@ -230,14 +230,14 @@ def snapshot_management_ui(input_file):
             if st.button("Chat Assistant", key=f"chat_{snapshot['snapshot_id']}"):
                 st.session_state.selected_snapshot = snapshot
                 st.session_state.app_mode = 'chat_assistant'
-                st.switch_page("pages/Chat_Assistant.py")
+                st.switch_page("Chat_Assistant.py")
         
         with col4:
             if len(snapshot.get('scenarios', [])) >= 2:
                 if st.button("Compare Scenarios", key=f"compare_{snapshot['snapshot_id']}"):
                     st.session_state.selected_snapshot = snapshot
                     st.session_state.app_mode = 'scenario_comparison'
-                    st.switch_page("pages/Scenario_Comparison.py")
+                    st.switch_page("Scenario_Comparison.py")
             else:
                 st.button("Compare Scenarios", key=f"compare_{snapshot['snapshot_id']}", disabled=True)
         
@@ -270,14 +270,14 @@ def snapshot_management_ui(input_file):
         if st.button("Chat Assistant"):
             st.session_state.selected_snapshot = selected_snapshot
             st.session_state.app_mode = 'chat_assistant'
-            st.switch_page("pages/Chat_Assistant.py")
+            st.switch_page("Chat_Assistant.py")
     
     with col3:
         if scenario_count >= 2:
             if st.button("Compare Scenarios"):
                 st.session_state.selected_snapshot = selected_snapshot
                 st.session_state.app_mode = 'scenario_comparison'
-                st.switch_page("pages/Scenario_Comparison.py")
+                st.switch_page("Scenario_Comparison.py")
         else:
             st.button("Compare Scenarios", disabled=True)
     
