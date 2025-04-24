@@ -47,13 +47,13 @@ except ImportError:
     FOLIUM_AVAILABLE = False
     st.warning("streamlit-folium package not available. Folium maps will be disabled. Please use Plotly maps instead.")
 
-from app.utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
-from app.solver import solve_cvrp, get_route_info
-from app.nlp_processor import process_query
-from app.input_repository import input_repository_page
-from app.snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
-from app.scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
-from app.scenario_comparison import scenario_comparison_ui
+from .utils import create_distance_matrix, get_download_link, create_folium_map, create_plotly_map
+from .solver import solve_cvrp, get_route_info
+from .nlp_processor import process_query
+from .input_repository import input_repository_page
+from .snapshot_manager import snapshot_management_ui, save_snapshot, get_snapshot_by_id
+from .scenario_manager import scenario_management_ui, save_scenario, update_scenario_results
+from .scenario_comparison import scenario_comparison_ui
 
 logging.basicConfig(
     level=logging.INFO,
