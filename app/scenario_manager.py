@@ -10,15 +10,19 @@ from pathlib import Path
 class CustomJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder to handle non-serializable objects."""
     def default(self, obj):
-        if isinstance(obj, pd.DataFrame):
-            return obj.to_dict(orient='records')
-        if isinstance(obj, np.integer):
+        if isinstance(obj, (np.int_, np.intc, np.intp, np.int8,
+            np.int16, np.int32, np.int64, np.uint8,
+            np.uint16, np.uint32, np.uint64)):
             return int(obj)
-        if isinstance(obj, np.floating):
+        elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
             return float(obj)
-        if isinstance(obj, np.ndarray):
+        elif isinstance(obj, (np.ndarray,)):
             return obj.tolist()
-        if pd.isna(obj):
+        elif isinstance(obj, pd.DataFrame):
+            return obj.to_dict('records')
+        elif isinstance(obj, datetime.datetime):
+            return obj.strftime("%Y-%m-%d %H:%M:%S")
+        elif pd.isna(obj):
             return None
         return super().default(obj)
 
@@ -149,19 +153,35 @@ def update_scenario_results(scenario_id, results):
     Returns:
         bool: True if successful, False otherwise
     """
-    scenario_data = get_scenario_by_id(scenario_id)
-    if not scenario_data:
-        return False
-    
-    scenario_data["optimization_results"] = results
-    
-    scenarios_dir = get_scenarios_dir()
-    file_path = scenarios_dir / f"{scenario_id}.json"
-    
     try:
+        scenario_data = get_scenario_by_id(scenario_id)
+        if not scenario_data:
+            st.error(f"Could not find scenario with ID: {scenario_id}")
+            return False
+        
+        # Ensure all numpy/pandas objects are converted to basic Python types
+        clean_results = {
+            'total_distance': float(results.get('total_distance', 0)),
+            'total_customers': int(results.get('total_customers', 0)),
+            'total_demand': int(results.get('total_demand', 0)),
+            'capacity_utilization': float(results.get('capacity_utilization', 0)),
+            'route_summary': results.get('route_summary', []),
+            'route_info': results.get('route_info', []),
+            'kpi_df': results.get('kpi_df', []),
+            'detailed_df': results.get('detailed_df', []),
+            'vehicle_capacity': int(results.get('vehicle_capacity', 0)),
+            'timestamp': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        scenario_data["optimization_results"] = clean_results
+        
+        scenarios_dir = get_scenarios_dir()
+        file_path = scenarios_dir / f"{scenario_id}.json"
+        
         with open(file_path, "w") as f:
             json.dump(scenario_data, f, indent=2, cls=CustomJSONEncoder)
         return True
+        
     except Exception as e:
         st.error(f"Error updating scenario results: {str(e)}")
         return False
