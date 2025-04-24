@@ -278,62 +278,62 @@ else:
             st.warning("Vehicle capacity not found in scenario config or optimization results.")
             vehicle_capacity = 100  # Default value
     
-    total_distance = scenario_results.get("total_distance", 0)
-    total_customers = scenario_results.get("total_customers", 0)
-    total_demand = scenario_results.get("total_demand", 0)
-    capacity_utilization = scenario_results.get("capacity_utilization", 0)
+        total_distance = scenario_results.get("total_distance", 0)
+        total_customers = scenario_results.get("total_customers", 0)
+        total_demand = scenario_results.get("total_demand", 0)
+        capacity_utilization = scenario_results.get("capacity_utilization", 0)
+        
+        route_summary = scenario_results.get("route_summary", [])
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Distance (km)", f"{total_distance:.2f}")
+        with col2:
+            st.metric("Total Customers Served", total_customers)
+        with col3:
+            st.metric("Total Demand Delivered", total_demand)
+        with col4:
+            st.metric("Capacity Utilization", f"{capacity_utilization:.2f}%")
+        
+        # If route_summary is not available, generate it from route_info
+        if not route_summary and route_info:
+            route_summary = []
+            for route in route_info:
+                route_summary.append({
+                    'Vehicle': f"Vehicle {route['vehicle_id']}",
+                    'Stops': len(route['stops']) if 'stops' in route else 0,
+                    'Total Distance (km)': round(route['total_distance'], 2),
+                    'Total Demand': route['total_demand'],
+                    'Capacity Utilization (%)': round(route['total_demand'] / vehicle_capacity * 100, 2)
+                })
+        
+        st.subheader("Route Summary")
+        if route_summary:
+            route_df = pd.DataFrame(route_summary)
+            st.dataframe(route_df)
+        
+        if route_info:
+            st.markdown("### Route Paths")
+            for route in route_info:
+                if 'route_text' in route:
+                    st.markdown(f"**{route['route_text']}**")
+                elif 'stops' in route:
+                    stops = [stop['customer_id'] for stop in route['stops']] if 'stops' in route else []
+                    stops_str = "Depot → " + " → ".join(stops) + " → Depot" if stops else "Depot → Depot"
+                    st.markdown(f"**Vehicle {route['vehicle_id']}: {stops_str}**")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Return to Scenario Management"):
+                st.session_state.app_mode = 'scenario_management'
+                st.switch_page("main.py")
     
-    route_summary = scenario_results.get("route_summary", [])
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Distance (km)", f"{total_distance:.2f}")
-    with col2:
-        st.metric("Total Customers Served", total_customers)
-    with col3:
-        st.metric("Total Demand Delivered", total_demand)
-    with col4:
-        st.metric("Capacity Utilization", f"{capacity_utilization:.2f}%")
-    
-    # If route_summary is not available, generate it from route_info
-    if not route_summary and route_info:
-        route_summary = []
-        for route in route_info:
-            route_summary.append({
-                'Vehicle': f"Vehicle {route['vehicle_id']}",
-                'Stops': len(route['stops']) if 'stops' in route else 0,
-                'Total Distance (km)': round(route['total_distance'], 2),
-                'Total Demand': route['total_demand'],
-                'Capacity Utilization (%)': round(route['total_demand'] / vehicle_capacity * 100, 2)
-            })
-    
-    st.subheader("Route Summary")
-    if route_summary:
-        route_df = pd.DataFrame(route_summary)
-        st.dataframe(route_df)
-    
-    if route_info:
-        st.markdown("### Route Paths")
-        for route in route_info:
-            if 'route_text' in route:
-                st.markdown(f"**{route['route_text']}**")
-            elif 'stops' in route:
-                stops = [stop['customer_id'] for stop in route['stops']] if 'stops' in route else []
-                stops_str = "Depot → " + " → ".join(stops) + " → Depot" if stops else "Depot → Depot"
-                st.markdown(f"**Vehicle {route['vehicle_id']}: {stops_str}**")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Return to Scenario Management"):
-            st.session_state.app_mode = 'scenario_management'
-            st.switch_page("main.py")
-    
-    with col2:
-        if st.button("Chat with Assistant"):
-            st.session_state.app_mode = 'chat_assistant'
-            st.switch_page("pages/Chat_Assistant.py")
-    
-    st.stop()
+        with col2:
+            if st.button("Chat with Assistant"):
+                st.session_state.app_mode = 'chat_assistant'
+                st.switch_page("pages/Chat_Assistant.py")
+        
+        st.stop()
 
 if st.session_state.app_mode == 'scenario_comparison':
     if st.session_state.selected_snapshot is None:
