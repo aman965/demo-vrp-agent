@@ -260,23 +260,23 @@ else:
                 st.switch_page("main.py")
             st.stop()
     
-    route_info = scenario_results.get('route_info')
-    solution_data = scenario_results.get('solution_data')
-    kpi_df = scenario_results.get('kpi_df')
-    detailed_df = scenario_results.get('detailed_df')
+        route_info = scenario_results.get('route_info')
+        solution_data = scenario_results.get('solution_data')
+        kpi_df = scenario_results.get('kpi_df')
+        detailed_df = scenario_results.get('detailed_df')
+        
+        kpi_df = ensure_dataframe(kpi_df)
+        detailed_df = ensure_dataframe(detailed_df)
     
-    kpi_df = ensure_dataframe(kpi_df)
-    detailed_df = ensure_dataframe(detailed_df)
-    
-    vehicle_capacity = None
-    if 'config' in st.session_state.selected_scenario and 'vehicle_capacity' in st.session_state.selected_scenario['config']:
-        vehicle_capacity = st.session_state.selected_scenario['config']['vehicle_capacity']
-    elif 'vehicle_capacity' in scenario_results:
-        vehicle_capacity = scenario_results['vehicle_capacity']
-    
-    if not vehicle_capacity:
-        st.warning("Vehicle capacity not found in scenario config or optimization results.")
-        vehicle_capacity = 100  # Default value
+        vehicle_capacity = None
+        if 'config' in st.session_state.selected_scenario and 'vehicle_capacity' in st.session_state.selected_scenario['config']:
+            vehicle_capacity = st.session_state.selected_scenario['config']['vehicle_capacity']
+        elif 'vehicle_capacity' in scenario_results:
+            vehicle_capacity = scenario_results['vehicle_capacity']
+        
+        if not vehicle_capacity:
+            st.warning("Vehicle capacity not found in scenario config or optimization results.")
+            vehicle_capacity = 100  # Default value
     
     total_distance = scenario_results.get("total_distance", 0)
     total_customers = scenario_results.get("total_customers", 0)
