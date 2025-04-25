@@ -187,6 +187,57 @@ def update_scenario_results(scenario_id, results):
         st.error(f"Error updating scenario results: {str(e)}")
         return False
 
+def display_constraint_feedback_ui():
+    """
+    Display the feedback from ChatGPT for constraint modifications in a well-formatted way.
+    Includes buttons for accepting or retrying the changes.
+    
+    The function expects st.session_state.current_prompt_response to contain:
+    {
+        "prompt": str,  # User prompt
+        "analysis": {
+            "constraints": dict,
+            "summary": str,
+            "notes": str (optional)
+        }
+    }
+    """
+    if not hasattr(st.session_state, 'current_prompt_response'):
+        st.warning("No constraint feedback to display.")
+        return
+    
+    response = st.session_state.current_prompt_response
+    
+    # Display the original prompt
+    st.subheader("Your Request")
+    st.text(response["prompt"])
+    
+    st.subheader("ChatGPT's Analysis")
+    
+    # Display summary in bold
+    st.markdown(f"**{response['analysis']['summary']}**")
+    
+    # Display constraints as bullet points
+    st.subheader("Updated Constraints")
+    for key, value in response['analysis']['constraints'].items():
+        st.markdown(f"• **{key}**: {value}")
+    
+    # Display notes if present
+    if 'notes' in response['analysis'] and response['analysis']['notes']:
+        st.subheader("Additional Notes")
+        st.markdown(f"*{response['analysis']['notes']}*")
+    
+    # Add buttons in columns for better layout
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("✅ Accept and Save to Scenario"):
+            st.success("Changes accepted! Saving to scenario...")
+            
+    with col2:
+        if st.button("🔁 Retry with Updated Prompt"):
+            st.info("Please provide an updated prompt...")
+
 def scenario_management_ui(snapshot_id, snapshot_name):
     """
     Display the scenario management UI for a specific snapshot.
