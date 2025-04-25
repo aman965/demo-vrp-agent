@@ -389,34 +389,34 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                     if constraint_analysis.get('constraints'):
                         implementation_notes = []
                         for constraint in constraint_analysis['constraints']:
-                            # Here we could add logic to detect specific constraint types
-                            # and how they map to the solver
                             implementation_notes.append(f"- {constraint}")
                         constraint_analysis['implementation_notes'] = "\n".join(implementation_notes)
                     
                     st.session_state.constraint_analysis = constraint_analysis
                     st.session_state.last_prompt = constraint_prompt
             
-            # Display constraint analysis in an expander
-            if st.session_state.constraint_analysis.get("constraints"):
-                st.markdown("#### 📝 Extracted Constraints")
-                for i, constraint in enumerate(st.session_state.constraint_analysis["constraints"], 1):
-                    st.markdown(f"{i}. {constraint}")
-            
-            if st.session_state.constraint_analysis.get("summary"):
-                st.markdown("#### 📌 Summary")
-                st.markdown(st.session_state.constraint_analysis["summary"])
-            
-            if st.session_state.constraint_analysis.get("implementation_notes"):
-                st.markdown("#### 🧩 Implementation Details")
-                st.markdown(st.session_state.constraint_analysis["implementation_notes"])
-            
-            if st.session_state.constraint_analysis.get("notes"):
-                st.markdown("#### 📓 Implementation Notes")
-                notes = st.session_state.constraint_analysis["notes"].split('\n')
-                for note in notes:
-                    if note.strip():
-                        st.markdown(f"- {note.strip()}")
+            # Display GPT's interpretation immediately after analysis
+            if st.session_state.constraint_analysis:
+                st.markdown("---")
+                st.markdown("### 🧠 GPT Interpretation")
+                
+                if st.session_state.constraint_analysis.get("summary"):
+                    st.markdown("**" + st.session_state.constraint_analysis["summary"] + "**")
+                
+                if st.session_state.constraint_analysis.get("constraints"):
+                    st.markdown("#### Extracted Constraints:")
+                    for constraint in st.session_state.constraint_analysis["constraints"]:
+                        st.markdown(f"• {constraint}")
+                
+                if st.session_state.constraint_analysis.get("notes"):
+                    st.markdown("#### Additional Notes:")
+                    st.markdown("*" + st.session_state.constraint_analysis["notes"] + "*")
+                
+                if st.session_state.constraint_analysis.get("implementation_notes"):
+                    st.markdown("#### Implementation Details:")
+                    st.markdown(st.session_state.constraint_analysis["implementation_notes"])
+                
+                st.markdown("---")
             
             # Add Accept and Retry buttons in columns
             col1, col2 = st.columns(2)
