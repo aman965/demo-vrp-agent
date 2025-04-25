@@ -559,15 +559,24 @@ def scenario_management_ui(snapshot_id, snapshot_name):
         
         if selected_scenario.get("prompt_history"):
             st.subheader("Prompt History")
+            st.container()
             for i, entry in enumerate(selected_scenario["prompt_history"]):
-                with st.expander(f"Prompt {i+1} - {'✅ Accepted' if entry.get('accepted') else '❌ Rejected'}"):
-                    st.text("Prompt:")
-                    st.code(entry.get("prompt", ""))
-                    st.text("Analysis:")
-                    st.json(entry.get("analysis", {}))
-                    if entry.get("implementation_notes"):
-                        st.text("Implementation Notes:")
-                        st.code(entry.get("implementation_notes", ""))
+                st.markdown(f"""
+                ---
+                ### Prompt {i+1} {'✅ Accepted' if entry.get('accepted') else '❌ Rejected'}
+                
+                **Prompt Text:**
+                ```
+                {entry.get('prompt', '')}
+                ```
+                
+                **Analysis:**
+                ```json
+                {json.dumps(entry.get('analysis', {}), indent=2)}
+                ```
+                
+                {f"**Implementation Notes:**\n```\n{entry.get('implementation_notes', '')}\n```" if entry.get('implementation_notes') else ''}
+                """)
     
     col1, col2 = st.columns(2)
     with col1:
