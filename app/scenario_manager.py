@@ -272,7 +272,8 @@ def display_constraint_feedback_ui():
                     st.success(f"Scenario '{scenario_data['scenario_name']}' saved successfully with constraints!")
                     
                     # Clear the current prompt response to hide the feedback panel
-                    del st.session_state.current_prompt_response
+                    if hasattr(st.session_state, 'current_prompt_response'):
+                        del st.session_state.current_prompt_response
                     
                     # Rerun to refresh the UI
                     st.rerun()
@@ -285,7 +286,8 @@ def display_constraint_feedback_ui():
             # Store the current prompt in session state for retry
             st.session_state.retry_prompt = response['prompt']
             # Clear current response to hide feedback panel
-            del st.session_state.current_prompt_response
+            if hasattr(st.session_state, 'current_prompt_response'):
+                del st.session_state.current_prompt_response
             st.rerun()
 
 def scenario_management_ui(snapshot_id, snapshot_name):
@@ -548,3 +550,14 @@ def scenario_management_ui(snapshot_id, snapshot_name):
             return selected_scenario, True
     
     return None, False
+
+def try_switch_page(page_name, fallback_message=None):
+    """Helper function to safely switch pages with fallback."""
+    try:
+        st.switch_page(page_name)
+    except Exception as e:
+        if fallback_message:
+            st.warning(fallback_message)
+        else:
+            st.warning(f"Unable to switch to page '{page_name}'. The page may have been moved or renamed.")
+        st.error(f"Error: {str(e)}")

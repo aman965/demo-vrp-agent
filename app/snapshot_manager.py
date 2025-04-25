@@ -154,6 +154,17 @@ def update_snapshot_scenarios(snapshot_id, scenario_id):
         st.error(f"Error updating snapshot scenarios: {str(e)}")
         return False
 
+def try_switch_page(page_name, fallback_message=None):
+    """Helper function to safely switch pages with fallback."""
+    try:
+        st.switch_page(page_name)
+    except Exception as e:
+        if fallback_message:
+            st.warning(fallback_message)
+        else:
+            st.warning(f"Unable to switch to page '{page_name}'. The page may have been moved or renamed.")
+        st.error(f"Error: {str(e)}")
+
 def snapshot_management_ui(input_file):
     """
     Display the snapshot management UI for a specific input file.
@@ -189,7 +200,7 @@ def snapshot_management_ui(input_file):
                     description=description if description else None
                 )
                 st.success(f"Snapshot '{snapshot_data['snapshot_name']}' saved successfully!")
-                st.switch_page("main.py")
+                try_switch_page("main.py")
     
     with col2:
         st.subheader("What is a Snapshot?")
@@ -230,14 +241,15 @@ def snapshot_management_ui(input_file):
             if st.button("Chat Assistant", key=f"chat_{snapshot['snapshot_id']}"):
                 st.session_state.selected_snapshot = snapshot
                 st.session_state.app_mode = 'chat_assistant'
-                st.switch_page("Chat_Assistant.py")
+                try_switch_page("pages/Chat_Assistant.py", 
+                              "Chat Assistant feature is currently unavailable. Please check back later.")
         
         with col4:
             if len(snapshot.get('scenarios', [])) >= 2:
                 if st.button("Compare Scenarios", key=f"compare_{snapshot['snapshot_id']}"):
                     st.session_state.selected_snapshot = snapshot
                     st.session_state.app_mode = 'scenario_comparison'
-                    st.switch_page("Scenario_Comparison.py")
+                    try_switch_page("pages/Scenario_Comparison.py")
             else:
                 st.button("Compare Scenarios", key=f"compare_{snapshot['snapshot_id']}", disabled=True)
         
@@ -270,14 +282,15 @@ def snapshot_management_ui(input_file):
         if st.button("Chat Assistant"):
             st.session_state.selected_snapshot = selected_snapshot
             st.session_state.app_mode = 'chat_assistant'
-            st.switch_page("Chat_Assistant.py")
+            try_switch_page("pages/Chat_Assistant.py", 
+                          "Chat Assistant feature is currently unavailable. Please check back later.")
     
     with col3:
         if scenario_count >= 2:
             if st.button("Compare Scenarios"):
                 st.session_state.selected_snapshot = selected_snapshot
                 st.session_state.app_mode = 'scenario_comparison'
-                st.switch_page("Scenario_Comparison.py")
+                try_switch_page("pages/Scenario_Comparison.py")
         else:
             st.button("Compare Scenarios", disabled=True)
     
