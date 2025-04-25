@@ -38,6 +38,11 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
     
     scenario_id = f"scenario_{uuid.uuid4().hex[:8]}"
     
+    # Extract extra_constraints from the analysis if available
+    extra_constraints = None
+    if constraint_analysis and isinstance(constraint_analysis, dict):
+        extra_constraints = constraint_analysis.get('constraints', {})
+    
     scenario_data = {
         "scenario_id": scenario_id,
         "scenario_name": scenario_name,
@@ -45,7 +50,8 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
         "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "config": {
             "num_vehicles": num_vehicles,
-            "vehicle_capacity": vehicle_capacity
+            "vehicle_capacity": vehicle_capacity,
+            "extra_constraints": extra_constraints  # Add extra_constraints to config
         },
         "constraints": constraints,
         "constraint_prompt": constraint_prompt,
@@ -392,78 +398,77 @@ def scenario_management_ui(snapshot_id, snapshot_name):
                     st.session_state.last_prompt = constraint_prompt
             
             # Display constraint analysis in an expander
-            with st.expander("📋 Constraint Analysis", expanded=True):
-                if st.session_state.constraint_analysis.get("constraints"):
-                    st.markdown("#### 📝 Extracted Constraints")
-                    for i, constraint in enumerate(st.session_state.constraint_analysis["constraints"], 1):
-                        st.markdown(f"{i}. {constraint}")
-                
-                if st.session_state.constraint_analysis.get("summary"):
-                    st.markdown("#### 📌 Summary")
-                    st.markdown(st.session_state.constraint_analysis["summary"])
-                
-                if st.session_state.constraint_analysis.get("implementation_notes"):
-                    st.markdown("#### 🧩 Implementation Details")
-                    st.markdown(st.session_state.constraint_analysis["implementation_notes"])
-                
-                if st.session_state.constraint_analysis.get("notes"):
-                    st.markdown("#### 📓 Implementation Notes")
-                    notes = st.session_state.constraint_analysis["notes"].split('\n')
-                    for note in notes:
-                        if note.strip():
-                            st.markdown(f"- {note.strip()}")
-                
-                # Add Accept and Retry buttons in columns
-                col1, col2 = st.columns(2)
-                with col1:
-                    accept = st.button("✅ Accept and Save Scenario")
-                with col2:
-                    retry = st.button("🔁 Retry with New Prompt")
-                
-                if retry:
-                    # Store current attempt in history with accepted=False
-                    st.session_state.constraint_history.append({
+            if st.session_state.constraint_analysis.get("constraints"):
+                st.markdown("#### 📝 Extracted Constraints")
+                for i, constraint in enumerate(st.session_state.constraint_analysis["constraints"], 1):
+                    st.markdown(f"{i}. {constraint}")
+            
+            if st.session_state.constraint_analysis.get("summary"):
+                st.markdown("#### 📌 Summary")
+                st.markdown(st.session_state.constraint_analysis["summary"])
+            
+            if st.session_state.constraint_analysis.get("implementation_notes"):
+                st.markdown("#### 🧩 Implementation Details")
+                st.markdown(st.session_state.constraint_analysis["implementation_notes"])
+            
+            if st.session_state.constraint_analysis.get("notes"):
+                st.markdown("#### 📓 Implementation Notes")
+                notes = st.session_state.constraint_analysis["notes"].split('\n')
+                for note in notes:
+                    if note.strip():
+                        st.markdown(f"- {note.strip()}")
+            
+            # Add Accept and Retry buttons in columns
+            col1, col2 = st.columns(2)
+            with col1:
+                accept = st.button("✅ Accept and Save Scenario")
+            with col2:
+                retry = st.button("🔁 Retry with New Prompt")
+            
+            if retry:
+                # Store current attempt in history with accepted=False
+                st.session_state.constraint_history.append({
+                    'prompt': constraint_prompt,
+                    'analysis': st.session_state.constraint_analysis,
+                    'accepted': False
+                })
+                # Clear current analysis to trigger reprocessing
+                st.session_state.constraint_analysis = None
+                st.session_state.last_prompt = None
+                st.rerun()
+            
+            if accept:
+                with st.spinner("Saving scenario..."):
+                    # Store current attempt in history with accepted=True
+                    current_attempt = {
                         'prompt': constraint_prompt,
                         'analysis': st.session_state.constraint_analysis,
-                        'accepted': False
-                    })
-                    # Clear current analysis to trigger reprocessing
+                        'accepted': True
+                    }
+                    prompt_history = st.session_state.constraint_history + [current_attempt]
+                    
+                    scenario_data = save_scenario(
+                        snapshot_id=snapshot_id,
+                        scenario_name=scenario_name,
+                        num_vehicles=num_vehicles,
+                        vehicle_capacity=vehicle_capacity,
+                        constraints=constraints if constraints else None,
+                        constraint_prompt=constraint_prompt,
+                        constraint_analysis=st.session_state.constraint_analysis,
+                        prompt_history=prompt_history
+                    )
+                    
+                    # Add the scenario to the snapshot's list of scenarios
+                    add_scenario_to_snapshot(snapshot_id, scenario_data["scenario_id"])
+                    
+                    st.success(f"Scenario '{scenario_data['scenario_name']}' saved successfully!")
+                    
+                    # Clear constraint history and analysis after successful save
                     st.session_state.constraint_analysis = None
+                    st.session_state.constraint_history = []
                     st.session_state.last_prompt = None
+                    
                     st.rerun()
-                
-                if accept:
-                    with st.spinner("Saving scenario..."):
-                        # Store current attempt in history with accepted=True
-                        current_attempt = {
-                            'prompt': constraint_prompt,
-                            'analysis': st.session_state.constraint_analysis,
-                            'accepted': True
-                        }
-                        prompt_history = st.session_state.constraint_history + [current_attempt]
-                        
-                        scenario_data = save_scenario(
-                            snapshot_id=snapshot_id,
-                            scenario_name=scenario_name,
-                            num_vehicles=num_vehicles,
-                            vehicle_capacity=vehicle_capacity,
-                            constraints=constraints if constraints else None,
-                            constraint_prompt=constraint_prompt,
-                            constraint_analysis=st.session_state.constraint_analysis,
-                            prompt_history=prompt_history
-                        )
-                        
-                        # Add the scenario to the snapshot's list of scenarios
-                        add_scenario_to_snapshot(snapshot_id, scenario_data["scenario_id"])
-                        
-                        st.success(f"Scenario '{scenario_data['scenario_name']}' saved successfully!")
-                        
-                        # Clear constraint history and analysis after successful save
-                        st.session_state.constraint_analysis = None
-                        st.session_state.constraint_history = []
-                        st.session_state.last_prompt = None
-                        
-                        st.rerun()
         
         # Only show the regular save button if no constraint prompt is provided
         elif st.button("Save Scenario"):
