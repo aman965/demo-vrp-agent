@@ -253,6 +253,11 @@ def scenario_management_ui(snapshot_id, snapshot_name):
     st.title("Scenario Management")
     st.markdown(f"Managing scenarios for snapshot: **{snapshot_name}**")
     
+    # Display constraint feedback if available
+    if hasattr(st.session_state, 'current_prompt_response'):
+        display_constraint_feedback_ui()
+        st.markdown("---")  # Add a separator after the feedback
+    
     col1, col2 = st.columns([2, 1])
     
     with col1:
