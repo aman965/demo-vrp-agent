@@ -441,26 +441,28 @@ def process_constraint_prompt(prompt, context=None):
         Your task is to analyze natural language prompts and extract meaningful constraints and requirements.
         
         FORMAT YOUR RESPONSE AS FOLLOWS:
-        1. First, provide a "CONSTRAINTS" section listing each extracted constraint
+        1. First, provide a "CONSTRAINTS" section listing each extracted constraint with its corresponding solver parameter
         2. Then, provide a "SUMMARY" section with a brief overview of the constraints
-        3. Finally, provide a "NOTES" section with any additional considerations or potential issues
+        3. Finally, provide a "NOTES" section with implementation details
         
         EXAMPLE INPUT:
-        "Vehicles must return to depot by 5 PM and can't exceed 8 hours of driving time. Prioritize serving customers with high demand first."
+        "can you limit total vehicle usage to be 4?"
         
         EXAMPLE OUTPUT:
         CONSTRAINTS:
-        1. Time window constraint: All vehicles must return to depot by 17:00
-        2. Duration constraint: Maximum route duration is 8 hours per vehicle
-        3. Priority constraint: Serve high-demand customers first
+        max_vehicles: 4
         
         SUMMARY:
-        The scenario involves time-based constraints with a specific return deadline and maximum route duration, along with a prioritization rule for customer service based on demand levels.
+        Vehicle fleet size constraint specified to optimize resource utilization.
         
         NOTES:
-        - Time window constraint requires temporal data for implementation
-        - May need to define threshold for "high demand" classification
-        - Consider break times within 8-hour driving window
+        This constraint will be implemented by setting max_vehicles parameter in the solver configuration.
+        
+        AVAILABLE SOLVER PARAMETERS:
+        - max_vehicles: Maximum number of vehicles to use
+        - max_distance_per_vehicle: Maximum distance a vehicle can travel
+        - max_customers_per_vehicle: Maximum number of customers per vehicle
+        - capacity_limit: Override vehicle capacity
         """
         
         messages = [
@@ -481,14 +483,26 @@ def process_constraint_prompt(prompt, context=None):
         response_text = response.choices[0].message.content.strip()
         
         # Extract constraints and summary
-        constraints = []
+        sections = response_text.split("\n\n")
+        constraints = {}
         summary = ""
         notes = ""
         
-        sections = response_text.split("\n\n")
         for section in sections:
             if section.startswith("CONSTRAINTS:"):
-                constraints = [c.strip() for c in section.replace("CONSTRAINTS:", "").strip().split("\n") if c.strip()]
+                # Extract constraints as key-value pairs
+                constraint_lines = [c.strip() for c in section.replace("CONSTRAINTS:", "").strip().split("\n") if c.strip()]
+                for line in constraint_lines:
+                    if ":" in line:
+                        key, value = line.split(":", 1)
+                        key = key.strip()
+                        value = value.strip()
+                        try:
+                            # Try to convert value to number if possible
+                            value = float(value) if '.' in value else int(value)
+                        except ValueError:
+                            pass
+                        constraints[key] = value
             elif section.startswith("SUMMARY:"):
                 summary = section.replace("SUMMARY:", "").strip()
             elif section.startswith("NOTES:"):
