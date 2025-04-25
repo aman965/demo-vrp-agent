@@ -9,6 +9,7 @@ from pathlib import Path
 from nlp_processor import process_query
 from utils.json_utils import CustomJSONEncoder
 from snapshot_manager import get_snapshot_by_id
+import traceback
 
 def get_scenarios_dir():
     """Get the path to the scenarios directory, creating it if it doesn't exist."""
@@ -311,6 +312,22 @@ def scenario_management_ui(snapshot_id, snapshot_name):
     st.title("Scenario Management")
     st.markdown(f"Managing scenarios for snapshot: **{snapshot_name}**")
     
+    # Add GPT Test Button
+    if st.button("🧪 Test OpenAI API Call"):
+        try:
+            from nlp_processor import client, MODEL_NAME
+            if client is None:
+                st.error("❌ OpenAI client not initialized. Please check your API key configuration.")
+            else:
+                response = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[{"role": "user", "content": "Say hello in one sentence."}]
+                )
+                st.success("✅ GPT Response: " + response.choices[0].message.content)
+        except Exception as e:
+            st.error(f"❌ GPT API call failed: {str(e)}")
+            st.error(f"Detailed error: {traceback.format_exc()}")
+    
     # Display constraint feedback if available
     if hasattr(st.session_state, 'current_prompt_response'):
         display_constraint_feedback_ui()
@@ -527,6 +544,30 @@ def scenario_management_ui(snapshot_id, snapshot_name):
     selected_scenario = scenarios[selected_index]
     
     st.subheader(f"Selected: {selected_scenario['scenario_name']}")
+    
+    # Add Debug Info Section
+    with st.expander("📦 Scenario Debug Info"):
+        st.json(selected_scenario)
+        
+        if selected_scenario.get("config", {}).get("extra_constraints"):
+            st.subheader("Extra Constraints")
+            st.json(selected_scenario["config"]["extra_constraints"])
+        
+        if selected_scenario.get("constraint_analysis"):
+            st.subheader("Constraint Analysis")
+            st.json(selected_scenario["constraint_analysis"])
+        
+        if selected_scenario.get("prompt_history"):
+            st.subheader("Prompt History")
+            for i, entry in enumerate(selected_scenario["prompt_history"]):
+                with st.expander(f"Prompt {i+1} - {'✅ Accepted' if entry.get('accepted') else '❌ Rejected'}"):
+                    st.text("Prompt:")
+                    st.code(entry.get("prompt", ""))
+                    st.text("Analysis:")
+                    st.json(entry.get("analysis", {}))
+                    if entry.get("implementation_notes"):
+                        st.text("Implementation Notes:")
+                        st.code(entry.get("implementation_notes", ""))
     
     col1, col2 = st.columns(2)
     with col1:

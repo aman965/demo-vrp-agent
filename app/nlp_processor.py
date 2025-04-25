@@ -9,43 +9,49 @@ from io import StringIO
 import re
 import traceback
 import os
+from openai import OpenAI
 
 API_KEY_AVAILABLE = False
 MODEL_NAME = "gpt-4"  # Default model
 
+st.info("📡 Starting GPT integration check...")
+st.text("Checking OpenAI library import...")
+
 try:
-    import openai
+    client = None  # Initialize OpenAI client as None
 except ImportError:
-    st.error("Failed to import OpenAI library. Please check your installation.")
-    openai = None
+    st.error("❌ Failed to import OpenAI library. Please check your installation.")
 
 try:
     api_key = st.secrets.get("OPENAI_API_KEY", "")
     MODEL_NAME = st.secrets.get("OPENAI_MODEL", "gpt-3.5-turbo")
     
+    st.text(f"Loaded Model: {MODEL_NAME}")
+    st.text(f"API Key Present: {'Yes' if api_key and len(api_key) > 0 else 'No'}")
+    
     if api_key and len(api_key) > 0:
-        openai.api_key = api_key
+        client = OpenAI(api_key=api_key)
         API_KEY_AVAILABLE = True
-        st.success(f"OpenAI API key found in Streamlit secrets. Using model: {MODEL_NAME}")
+        st.success(f"✅ OpenAI client initialized with model: {MODEL_NAME}")
     else:
-        st.warning("OpenAI API key in Streamlit secrets is empty.")
+        st.warning("⚠️ OpenAI API key in Streamlit secrets is empty.")
 except Exception as e:
-    st.warning(f"Could not load OpenAI API key from Streamlit secrets: {str(e)}")
+    st.warning(f"⚠️ Could not load OpenAI API key from Streamlit secrets: {str(e)}")
 
-if not API_KEY_AVAILABLE and openai is not None:
+if not API_KEY_AVAILABLE:
     try:
         for env_var in ["OPENAI_API_KEY", "vrp_demo_key", "streamlit_demo"]:
             api_key = os.environ.get(env_var, "")
             if api_key and len(api_key) > 0:
-                openai.api_key = api_key
+                client = OpenAI(api_key=api_key)
                 API_KEY_AVAILABLE = True
-                st.success(f"OpenAI API key found in environment variable '{env_var}'. Using model: {MODEL_NAME}")
+                st.success(f"✅ OpenAI API key found in environment variable '{env_var}'. Using model: {MODEL_NAME}")
                 break
         
         if not API_KEY_AVAILABLE:
-            st.error("OpenAI API key not found. Please add OPENAI_API_KEY to your Streamlit secrets or environment variables.")
+            st.error("❌ OpenAI API key not found. Please add OPENAI_API_KEY to your Streamlit secrets or environment variables.")
     except Exception as e:
-        st.error(f"Error accessing environment variables: {str(e)}")
+        st.error(f"❌ Error accessing environment variables: {str(e)}")
         API_KEY_AVAILABLE = False
 
 def process_query(query, route_info=None, kpi_df=None, detailed_df=None, vehicle_capacity=None, context=None, mode="analysis"):
@@ -64,7 +70,7 @@ def process_query(query, route_info=None, kpi_df=None, detailed_df=None, vehicle
     Returns:
         dict: Contains response text, visualization (if any), and intent information
     """
-    if not API_KEY_AVAILABLE or openai is None:
+    if not API_KEY_AVAILABLE or client is None:
         return {
             "response_text": "Sorry, I can't process your query because the OpenAI API key is not configured in Streamlit secrets. Please add the OPENAI_API_KEY to your secrets.",
             "visualization": None,
@@ -139,7 +145,7 @@ def query_gpt_with_context(query, context):
     Returns:
         str: GPT's response
     """
-    if not API_KEY_AVAILABLE or openai is None:
+    if not API_KEY_AVAILABLE or client is None:
         return "Sorry, I can't process your query because the OpenAI API key is not configured in Streamlit secrets. Please add the OPENAI_API_KEY to your secrets."
     
     try:
@@ -198,49 +204,24 @@ def query_gpt_with_context(query, context):
             lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
             dlon = lon2 - lon1
             dlat = lat2 - lat1
-            a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-            c = 2 * math.asin(math.sqrt(a))
-            r = 6371  # Radius of earth in kilometers
-            return c * r
         ```
         """
         
-        try:
-            import requests
-            
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": "Bearer " + api_key
-            }
-            
-            payload = {
-                "model": MODEL_NAME,
-                "messages": [
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": query}
-                ],
-                "temperature": 0.1,
-                "max_tokens": 1000
-            }
-            
-            response = requests.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers=headers,
-                json=payload
-            )
-            
-            if response.status_code == 200:
-                return response.json()["choices"][0]["message"]["content"]
-            else:
-                error_msg = "API call failed with status code " + str(response.status_code) + ": " + response.text
-                st.error(error_msg)
-                return "I'm sorry, I encountered an error while processing your query: " + error_msg
-        except Exception as e:
-            st.error("OpenAI API call failed: " + str(e))
-            return "I'm sorry, I encountered an error while processing your query: " + str(e)
-    
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": query}
+            ],
+            temperature=0.7,
+            max_tokens=1500
+        )
+        
+        return response.choices[0].message.content
+        
     except Exception as e:
-        return "Error querying GPT: " + str(e)
+        traceback.print_exc()
+        return f"Error querying GPT: {str(e)}"
 
 def process_gpt_response(response_text, kpi_df, detailed_df, route_info=None, vehicle_capacity=None):
     """
@@ -417,110 +398,100 @@ def haversine(lon1, lat1, lon2, lat2):
     return c * r
 
 def process_constraint_prompt(prompt, context=None):
-    """
-    Process a constraint prompt to extract structured constraints and provide a summary
+    """Process a constraint prompt using GPT to extract structured constraints
     
     Args:
-        prompt: The constraint prompt to process
-        context: Additional context information (optional)
+        prompt (str): The natural language constraint prompt
+        context (str, optional): Additional context to include
         
     Returns:
-        dict: Contains extracted constraints and summary
+        dict: Contains extracted constraints and GPT's analysis
     """
-    if not prompt or prompt.strip() == "":
+    if not API_KEY_AVAILABLE or client is None:
         return {
-            "response_text": "No constraint prompt provided.",
+            "response_text": "Sorry, I can't process your query because the OpenAI API key is not configured in Streamlit secrets. Please add the OPENAI_API_KEY to your secrets.",
             "constraints": [],
-            "summary": "",
-            "intent": "constraint_extraction"
+            "analysis": ""
         }
     
     try:
-        system_message = r"""
-        You are a constraint extraction assistant for a Vehicle Routing Problem (VRP) solver.
-        Your task is to analyze natural language prompts and extract meaningful constraints and requirements.
-        
-        FORMAT YOUR RESPONSE AS FOLLOWS:
-        1. First, provide a "CONSTRAINTS" section listing each extracted constraint with its corresponding solver parameter
-        2. Then, provide a "SUMMARY" section with a brief overview of the constraints
-        3. Finally, provide a "NOTES" section with implementation details
-        
-        EXAMPLE INPUT:
-        "can you limit total vehicle usage to be 4?"
-        
-        EXAMPLE OUTPUT:
-        CONSTRAINTS:
-        max_vehicles: 4
-        
-        SUMMARY:
-        Vehicle fleet size constraint specified to optimize resource utilization.
-        
-        NOTES:
-        This constraint will be implemented by setting max_vehicles parameter in the solver configuration.
-        
-        AVAILABLE SOLVER PARAMETERS:
-        - max_vehicles: Maximum number of vehicles to use
-        - max_distance_per_vehicle: Maximum distance a vehicle can travel
-        - max_customers_per_vehicle: Maximum number of customers per vehicle
-        - capacity_limit: Override vehicle capacity
-        """
-        
         messages = [
-            {"role": "system", "content": system_message},
+            {
+                "role": "system", 
+                "content": """You are an assistant that helps extract structured constraints from natural language descriptions for a Vehicle Routing Problem (VRP).
+
+Your task is to:
+1. Parse the natural language description
+2. Extract specific, implementable constraints
+3. Provide a brief analysis of the constraints
+
+Format your response as follows:
+1. First line: A comma-separated list of constraint types found, or "NO_CONSTRAINTS" if none found
+2. Following lines: One constraint per line in a structured format
+3. Final section: A brief analysis of the constraints
+
+Example response:
+TIME_WINDOW,VEHICLE_SPECIFIC
+vehicle_1 must complete route before 17:00
+vehicle_2 can only serve customers [1,2,3]
+Analysis: The constraints create a time-sensitive routing problem with vehicle-specific customer assignments.
+
+Constraint types:
+- TIME_WINDOW: Time-based constraints
+- VEHICLE_SPECIFIC: Constraints specific to certain vehicles
+- PRECEDENCE: Order/sequence constraints
+- CAPACITY: Vehicle capacity constraints
+- DISTANCE: Distance-based constraints
+- ZONE: Geographic zone constraints
+"""
+            },
             {"role": "user", "content": prompt}
         ]
         
         if context:
             messages.append({"role": "user", "content": f"Additional context:\n{context}"})
         
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=messages,
-            temperature=0.1,  # Low temperature for more focused/consistent output
+            temperature=0.3,
             max_tokens=1000
         )
         
-        response_text = response.choices[0].message.content.strip()
+        response_text = response.choices[0].message.content
         
-        # Extract constraints and summary
-        sections = response_text.split("\n\n")
-        constraints = {}
-        summary = ""
-        notes = ""
+        # Parse response
+        lines = response_text.strip().split('\n')
+        constraint_types = lines[0].strip()
         
-        for section in sections:
-            if section.startswith("CONSTRAINTS:"):
-                # Extract constraints as key-value pairs
-                constraint_lines = [c.strip() for c in section.replace("CONSTRAINTS:", "").strip().split("\n") if c.strip()]
-                for line in constraint_lines:
-                    if ":" in line:
-                        key, value = line.split(":", 1)
-                        key = key.strip()
-                        value = value.strip()
-                        try:
-                            # Try to convert value to number if possible
-                            value = float(value) if '.' in value else int(value)
-                        except ValueError:
-                            pass
-                        constraints[key] = value
-            elif section.startswith("SUMMARY:"):
-                summary = section.replace("SUMMARY:", "").strip()
-            elif section.startswith("NOTES:"):
-                notes = section.replace("NOTES:", "").strip()
+        # Extract constraints and analysis
+        constraints = []
+        analysis = ""
+        analysis_started = False
+        
+        for line in lines[1:]:
+            line = line.strip()
+            if not line:
+                continue
+                
+            if line.startswith('Analysis:'):
+                analysis_started = True
+                analysis = line[9:].strip()  # Remove "Analysis: "
+            elif analysis_started:
+                analysis += " " + line
+            else:
+                constraints.append(line)
         
         return {
-            "response_text": response_text,
+            "constraint_types": constraint_types,
             "constraints": constraints,
-            "summary": summary,
-            "notes": notes,
-            "intent": "constraint_extraction"
+            "analysis": analysis
         }
         
     except Exception as e:
+        traceback.print_exc()
         return {
             "response_text": f"Error processing constraint prompt: {str(e)}",
             "constraints": [],
-            "summary": "",
-            "notes": "",
-            "intent": "error"
+            "analysis": ""
         }
