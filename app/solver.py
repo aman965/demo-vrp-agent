@@ -24,7 +24,12 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
         demands: List of demands for each node
         vehicle_count: Number of vehicles
         vehicle_capacity: Base capacity for each vehicle
-        extra_constraints: Optional list of additional constraints to apply
+        extra_constraints: Dict of additional constraints to apply, e.g.:
+            {
+                'max_distance_per_vehicle': 100,  # Maximum distance per vehicle
+                'max_customers_per_vehicle': 5,   # Maximum customers per vehicle
+                'capacity_limit': 200             # Override vehicle capacity
+            }
         
     Returns:
         dict: Solution data including routes, distances, and implementation notes
@@ -34,18 +39,11 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
     
     # Apply extra constraints if provided
     if extra_constraints:
-        for constraint in extra_constraints:
-            constraint_type = constraint.get('type')
-            value = constraint.get('value')
-            
-            if constraint_type == 'capacity_limit':
-                # Update vehicle capacities
-                data['vehicle_capacities'] = [value] * vehicle_count
-                implementation_notes.append(f"Set vehicle capacity to {value}")
-            
-            elif constraint_type == 'max_customers_per_vehicle':
-                # Will be handled after routing model creation
-                implementation_notes.append(f"Will cap customers per vehicle to {value}")
+        # Handle capacity limit
+        if 'capacity_limit' in extra_constraints:
+            value = extra_constraints['capacity_limit']
+            data['vehicle_capacities'] = [value] * vehicle_count
+            implementation_notes.append(f"Set vehicle capacity to {value}")
     
     manager = pywrapcp.RoutingIndexManager(
         len(data['distance_matrix']), 
@@ -64,6 +62,17 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
     transit_callback_index = routing.RegisterTransitCallback(distance_callback)
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
     
+    # Add Distance constraint dimension
+    max_distance = extra_constraints.get('max_distance_per_vehicle', 100000) if extra_constraints else 100000
+    routing.AddDimension(
+        transit_callback_index,
+        0,  # null slack
+        max_distance,  # maximum distance per vehicle
+        True,  # start cumul to zero
+        'Distance'
+    )
+    implementation_notes.append(f"Set maximum distance per vehicle to {max_distance}")
+    
     def demand_callback(from_index):
         """Returns the demand of the node."""
         from_node = manager.IndexToNode(from_index)
@@ -79,23 +88,22 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
     )
     
     # Apply customer count constraints if specified
-    if extra_constraints:
-        for constraint in extra_constraints:
-            if constraint.get('type') == 'max_customers_per_vehicle':
-                def customer_callback(from_index):
-                    """Returns 1 for each customer (non-depot) node."""
-                    from_node = manager.IndexToNode(from_index)
-                    return 1 if from_node != data['depot'] else 0
-                
-                customer_callback_index = routing.RegisterUnaryTransitCallback(customer_callback)
-                routing.AddDimension(
-                    customer_callback_index,
-                    0,  # null capacity slack
-                    constraint['value'],  # maximum customers per vehicle
-                    True,  # start cumul to zero
-                    'Customers'
-                )
-                implementation_notes.append(f"Added constraint: maximum {constraint['value']} customers per vehicle")
+    if extra_constraints and 'max_customers_per_vehicle' in extra_constraints:
+        max_customers = extra_constraints['max_customers_per_vehicle']
+        def customer_callback(from_index):
+            """Returns 1 for each customer (non-depot) node."""
+            from_node = manager.IndexToNode(from_index)
+            return 1 if from_node != data['depot'] else 0
+        
+        customer_callback_index = routing.RegisterUnaryTransitCallback(customer_callback)
+        routing.AddDimension(
+            customer_callback_index,
+            0,  # null capacity slack
+            max_customers,  # maximum customers per vehicle
+            True,  # start cumul to zero
+            'Customers'
+        )
+        implementation_notes.append(f"Added constraint: maximum {max_customers} customers per vehicle")
     
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
     search_parameters.first_solution_strategy = (

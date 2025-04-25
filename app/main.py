@@ -306,7 +306,21 @@ if st.session_state.selected_df is not None or use_sample_data:
                 
                 add_log_message("Solving CVRP problem using OR-Tools...")
                 start_time = time.time()
-                solution_data = solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity)
+                
+                # Extract constraints from scenario if available
+                extra_constraints = None
+                if st.session_state.selected_scenario:
+                    extra_constraints = st.session_state.selected_scenario['config'].get('constraints')
+                    if extra_constraints:
+                        add_log_message(f"Applying extra constraints: {extra_constraints}")
+                
+                solution_data = solve_cvrp(
+                    distance_matrix=distance_matrix,
+                    demands=demands,
+                    vehicle_count=vehicle_count,
+                    vehicle_capacity=vehicle_capacity,
+                    extra_constraints=extra_constraints
+                )
                 solve_time = time.time() - start_time
                 add_log_message(f"Solver finished in {solve_time:.2f} seconds")
                 
