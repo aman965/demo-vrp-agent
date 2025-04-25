@@ -232,11 +232,61 @@ def display_constraint_feedback_ui():
     
     with col1:
         if st.button("✅ Accept and Save to Scenario"):
-            st.success("Changes accepted! Saving to scenario...")
+            # Check if we have the required scenario information
+            if not st.session_state.get('scenario_name'):
+                st.warning("Please enter a scenario name before accepting the constraints.")
+                return
+            
+            if not st.session_state.get('snapshot_id'):
+                st.warning("No snapshot selected. Please select a snapshot first.")
+                return
+            
+            # Add to prompt history
+            if 'prompt_history' not in st.session_state:
+                st.session_state.prompt_history = []
+            
+            st.session_state.prompt_history.append({
+                'prompt': response['prompt'],
+                'analysis': response['analysis'],
+                'accepted': True
+            })
+            
+            # Extract constraints for the scenario
+            extra_constraints = response['analysis']['constraints']
+            
+            # Save the scenario with the extracted constraints
+            with st.spinner("Saving scenario with constraints..."):
+                scenario_data = save_scenario(
+                    snapshot_id=st.session_state.snapshot_id,
+                    scenario_name=st.session_state.scenario_name,
+                    num_vehicles=st.session_state.get('num_vehicles', 5),
+                    vehicle_capacity=st.session_state.get('vehicle_capacity', 100),
+                    constraints=extra_constraints,
+                    constraint_prompt=response['prompt'],
+                    constraint_analysis=response['analysis'],
+                    prompt_history=st.session_state.prompt_history
+                )
+                
+                # Add the scenario to the snapshot's list of scenarios
+                if add_scenario_to_snapshot(st.session_state.snapshot_id, scenario_data["scenario_id"]):
+                    st.success(f"Scenario '{scenario_data['scenario_name']}' saved successfully with constraints!")
+                    
+                    # Clear the current prompt response to hide the feedback panel
+                    del st.session_state.current_prompt_response
+                    
+                    # Rerun to refresh the UI
+                    st.rerun()
+                else:
+                    st.error("Failed to add scenario to snapshot. Please try again.")
             
     with col2:
         if st.button("🔁 Retry with Updated Prompt"):
             st.info("Please provide an updated prompt...")
+            # Store the current prompt in session state for retry
+            st.session_state.retry_prompt = response['prompt']
+            # Clear current response to hide feedback panel
+            del st.session_state.current_prompt_response
+            st.rerun()
 
 def scenario_management_ui(snapshot_id, snapshot_name):
     """
