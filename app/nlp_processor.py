@@ -411,6 +411,7 @@ def process_constraint_prompt(prompt, context=None):
         return {
             "response_text": "Sorry, I can't process your query because the OpenAI API key is not configured in Streamlit secrets. Please add the OPENAI_API_KEY to your secrets.",
             "constraints": {},
+            "summary": "",
             "analysis": ""
         }
     
@@ -425,15 +426,23 @@ Your task is to:
 2. Extract specific, implementable constraints into a machine-readable format
 3. Provide a brief analysis of the constraints
 
-Format your response as follows:
-1. First line: A JSON object containing the extracted constraints
-2. Second line: A brief summary of what constraints were found
-3. Final line: A brief analysis of how the constraints will affect the solution
+IMPORTANT: You must respond in the following exact format:
+{
+    "constraints": {
+        // extracted constraints here as key-value pairs
+    },
+    "summary": "A brief summary of what constraints were found",
+    "analysis": "A brief analysis of how the constraints will affect the solution"
+}
 
 Example response for "Maximum distance per vehicle should be 40KM":
-{"max_distance_per_vehicle": 40}
-Set maximum distance per vehicle to 40KM
-This constraint will ensure no vehicle travels more than 40 kilometers in their route.
+{
+    "constraints": {
+        "max_distance_per_vehicle": 40
+    },
+    "summary": "Set maximum distance per vehicle to 40KM",
+    "analysis": "This constraint will ensure no vehicle travels more than 40 kilometers in their route"
+}
 
 Supported constraint types:
 - max_distance_per_vehicle: Maximum distance a vehicle can travel (number)
@@ -456,32 +465,36 @@ Supported constraint types:
             max_tokens=1000
         )
         
-        response_text = response.choices[0].message.content
+        response_text = response.choices[0].message.content.strip()
         
-        # Parse response
-        lines = response_text.strip().split('\n')
-        
-        # First line should be JSON
         try:
-            import json
-            constraints = json.loads(lines[0])
-        except (json.JSONDecodeError, IndexError):
-            constraints = {}
-        
-        # Get summary and analysis
-        summary = lines[1] if len(lines) > 1 else ""
-        analysis = lines[2] if len(lines) > 2 else ""
-        
-        return {
-            "constraints": constraints,
-            "summary": summary,
-            "analysis": analysis
-        }
+            # Parse the entire response as a JSON object
+            response_data = json.loads(response_text)
+            
+            # Ensure we have all required fields
+            constraints = response_data.get('constraints', {})
+            summary = response_data.get('summary', '')
+            analysis = response_data.get('analysis', '')
+            
+            return {
+                "constraints": constraints,
+                "summary": summary,
+                "analysis": analysis
+            }
+            
+        except json.JSONDecodeError as e:
+            st.error(f"Failed to parse GPT response as JSON: {str(e)}")
+            st.code(response_text, language="json")
+            return {
+                "constraints": {},
+                "summary": "Error: Failed to parse constraints",
+                "analysis": f"Error parsing GPT response: {str(e)}"
+            }
         
     except Exception as e:
         traceback.print_exc()
         return {
-            "response_text": f"Error processing constraint prompt: {str(e)}",
             "constraints": {},
-            "analysis": ""
+            "summary": "Error processing constraints",
+            "analysis": f"Error: {str(e)}"
         }
