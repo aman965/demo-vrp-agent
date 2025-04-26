@@ -46,13 +46,15 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
         "scenario_id": scenario_id,
         "snapshot_id": snapshot_id,
         "scenario_name": scenario_name,
-        "num_vehicles": num_vehicles,
-        "vehicle_capacity": vehicle_capacity,
+        "config": {
+            "num_vehicles": num_vehicles,
+            "vehicle_capacity": vehicle_capacity,
+            "extra_constraints": constraints or {}
+        },
         "customer_locations": snapshot.get("customer_locations", []),
         "demands": snapshot.get("demands", []),
         "depot_location": snapshot.get("depot_location", None),
         "distance_matrix": snapshot.get("distance_matrix", []),
-        "extra_constraints": constraints or {},
         "constraint_prompt": constraint_prompt,
         "constraint_analysis": constraint_analysis,
         "prompt_history": prompt_history or [],
