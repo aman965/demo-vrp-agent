@@ -326,6 +326,17 @@ if st.session_state.selected_df is not None or use_sample_data:
                 solve_time = time.time() - start_time
                 add_log_message(f"Solver finished in {solve_time:.2f} seconds")
                 
+                # Check if any vehicle exceeds max_distance_per_vehicle
+                try:
+                    if extra_constraints and "max_distance_per_vehicle" in extra_constraints:
+                        from solver import check_max_distance_per_vehicle
+                        check_max_distance_per_vehicle(solution_data, extra_constraints["max_distance_per_vehicle"])
+                except ValueError as e:
+                    error_msg = f"No feasible solution found: {str(e)}"
+                    add_log_message(error_msg, "ERROR")
+                    st.error(error_msg)
+                    st.stop()
+                
                 if solution_data is None:
                     error_msg = "No feasible solution found."
                     add_log_message(error_msg, "ERROR")

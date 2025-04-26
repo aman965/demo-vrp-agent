@@ -221,3 +221,14 @@ def get_route_info(solution_data, df):
             route_info.append(route_details)
     
     return route_info
+
+
+def check_max_distance_per_vehicle(solution_data, max_distance):
+    if "route_summary" not in solution_data:
+        raise ValueError("Missing route_summary in solution_data.")
+    for route in solution_data["route_summary"]:
+        if route["Total Distance (km)"] > max_distance:
+            raise ValueError(
+                f"Vehicle {route['Vehicle']} traveled {route['Total Distance (km)']:.2f} km, "
+                f"which exceeds the allowed maximum of {max_distance} km."
+            )
