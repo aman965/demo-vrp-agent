@@ -410,7 +410,7 @@ def process_constraint_prompt(prompt, context=None):
     if not API_KEY_AVAILABLE or client is None:
         return {
             "response_text": "Sorry, I can't process your query because the OpenAI API key is not configured in Streamlit secrets. Please add the OPENAI_API_KEY to your secrets.",
-            "constraints": [],
+            "constraints": {},
             "analysis": ""
         }
     
@@ -422,27 +422,25 @@ def process_constraint_prompt(prompt, context=None):
 
 Your task is to:
 1. Parse the natural language description
-2. Extract specific, implementable constraints
+2. Extract specific, implementable constraints into a machine-readable format
 3. Provide a brief analysis of the constraints
 
 Format your response as follows:
-1. First line: A comma-separated list of constraint types found, or "NO_CONSTRAINTS" if none found
-2. Following lines: One constraint per line in a structured format
-3. Final section: A brief analysis of the constraints
+1. First line: A JSON object containing the extracted constraints
+2. Second line: A brief summary of what constraints were found
+3. Final line: A brief analysis of how the constraints will affect the solution
 
-Example response:
-TIME_WINDOW,VEHICLE_SPECIFIC
-vehicle_1 must complete route before 17:00
-vehicle_2 can only serve customers [1,2,3]
-Analysis: The constraints create a time-sensitive routing problem with vehicle-specific customer assignments.
+Example response for "Maximum distance per vehicle should be 40KM":
+{"max_distance_per_vehicle": 40}
+Set maximum distance per vehicle to 40KM
+This constraint will ensure no vehicle travels more than 40 kilometers in their route.
 
-Constraint types:
-- TIME_WINDOW: Time-based constraints
-- VEHICLE_SPECIFIC: Constraints specific to certain vehicles
-- PRECEDENCE: Order/sequence constraints
-- CAPACITY: Vehicle capacity constraints
-- DISTANCE: Distance-based constraints
-- ZONE: Geographic zone constraints
+Supported constraint types:
+- max_distance_per_vehicle: Maximum distance a vehicle can travel (number)
+- max_customers_per_vehicle: Maximum customers a vehicle can serve (number)
+- capacity_limit: Override vehicle capacity (number)
+- allowed_zones: Geographic zones vehicles can operate in (list)
+- time_windows: Time windows for deliveries (dict)
 """
             },
             {"role": "user", "content": prompt}
@@ -462,29 +460,21 @@ Constraint types:
         
         # Parse response
         lines = response_text.strip().split('\n')
-        constraint_types = lines[0].strip()
         
-        # Extract constraints and analysis
-        constraints = []
-        analysis = ""
-        analysis_started = False
+        # First line should be JSON
+        try:
+            import json
+            constraints = json.loads(lines[0])
+        except (json.JSONDecodeError, IndexError):
+            constraints = {}
         
-        for line in lines[1:]:
-            line = line.strip()
-            if not line:
-                continue
-                
-            if line.startswith('Analysis:'):
-                analysis_started = True
-                analysis = line[9:].strip()  # Remove "Analysis: "
-            elif analysis_started:
-                analysis += " " + line
-            else:
-                constraints.append(line)
+        # Get summary and analysis
+        summary = lines[1] if len(lines) > 1 else ""
+        analysis = lines[2] if len(lines) > 2 else ""
         
         return {
-            "constraint_types": constraint_types,
             "constraints": constraints,
+            "summary": summary,
             "analysis": analysis
         }
         
@@ -492,6 +482,6 @@ Constraint types:
         traceback.print_exc()
         return {
             "response_text": f"Error processing constraint prompt: {str(e)}",
-            "constraints": [],
+            "constraints": {},
             "analysis": ""
         }

@@ -1,0 +1,12 @@
+{
+  "snapshot_id": "snapshot_99bf9802",
+  "snapshot_name": "sn1",
+  "input_file_id": "s1.csv",
+  "created_at": "2025-04-24 16:46:11",
+  "description": null,
+  "scenarios": [
+    "scenario_edad5317",
+    "scenario_25c6d36b",
+    "scenario_3a6c371b"
+  ]
+}

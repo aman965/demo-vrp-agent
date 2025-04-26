@@ -18,63 +18,55 @@ def get_scenarios_dir():
     return repo_dir
 
 def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, constraints=None, constraint_prompt=None, constraint_analysis=None, prompt_history=None):
-    """
-    Save a scenario configuration to a JSON file.
+    """Save a scenario configuration to a JSON file
     
     Args:
-        snapshot_id: ID of the snapshot this scenario is based on
-        scenario_name: Name of the scenario
-        num_vehicles: Number of vehicles for this scenario
-        vehicle_capacity: Vehicle capacity for this scenario
-        constraints: Optional text constraints for this scenario
-        constraint_prompt: Optional custom prompt for constraint handling
-        constraint_analysis: Optional analysis of the constraint prompt
-        prompt_history: Optional list of dicts containing previous prompt attempts and their analyses
-        
-    Returns:
-        dict: Metadata about the saved scenario
+        snapshot_id (str): ID of the snapshot to use
+        scenario_name (str): Name for the scenario
+        num_vehicles (int): Number of vehicles
+        vehicle_capacity (int): Vehicle capacity
+        constraints (dict, optional): Machine-readable constraints dictionary
+        constraint_prompt (str, optional): Natural language constraint prompt
+        constraint_analysis (str, optional): Analysis of constraints
+        prompt_history (list, optional): List of prompt history entries
     """
-    if not scenario_name:
-        scenario_name = f"scenario_{uuid.uuid4().hex[:8]}"
-    
-    scenario_id = f"scenario_{uuid.uuid4().hex[:8]}"
-    
-    # Extract extra_constraints from the analysis if available
-    extra_constraints = None
-    if constraint_analysis and isinstance(constraint_analysis, dict):
-        extra_constraints = constraint_analysis.get('constraints', {})
-    
+    # Get snapshot data
+    snapshot = get_snapshot_by_id(snapshot_id)
+    if not snapshot:
+        raise ValueError(f"No snapshot found with ID {snapshot_id}")
+        
+    # Create scenario data
     scenario_data = {
-        "scenario_id": scenario_id,
-        "scenario_name": scenario_name,
         "snapshot_id": snapshot_id,
-        "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "config": {
-            "num_vehicles": num_vehicles,
-            "vehicle_capacity": vehicle_capacity,
-            "extra_constraints": extra_constraints  # Add extra_constraints to config
-        },
-        "constraints": constraints,
+        "scenario_name": scenario_name,
+        "num_vehicles": num_vehicles,
+        "vehicle_capacity": vehicle_capacity,
+        "customer_locations": snapshot.get("customer_locations", []),
+        "demands": snapshot.get("demands", []),
+        "depot_location": snapshot.get("depot_location", None),
+        "distance_matrix": snapshot.get("distance_matrix", []),
+        "extra_constraints": constraints or {},
         "constraint_prompt": constraint_prompt,
         "constraint_analysis": constraint_analysis,
-        "prompt_history": prompt_history if prompt_history else [],
-        "optimization_results": None
+        "prompt_history": prompt_history or [],
+        "created_at": datetime.now().isoformat()
     }
     
+    # Save to file
     scenarios_dir = get_scenarios_dir()
-    file_path = scenarios_dir / f"{scenario_id}.json"
+    os.makedirs(scenarios_dir, exist_ok=True)
     
-    with open(file_path, "w") as f:
+    scenario_file = os.path.join(scenarios_dir, f"scenario_{scenario_name}.json")
+    with open(scenario_file, 'w') as f:
         json.dump(scenario_data, f, indent=2, cls=CustomJSONEncoder)
-    
-    return scenario_data
+        
+    return scenario_file
 
 def get_scenarios_for_snapshot(snapshot_id):
-    """
-    Get all scenarios for a specific snapshot.
+    """Get all scenarios associated with a snapshot
     
     Args:
-        snapshot_id: ID of the snapshot to get scenarios for
+        snapshot_id (str): ID of the snapshot
         
     Returns:
         list: List of scenario data dictionaries
@@ -82,18 +74,16 @@ def get_scenarios_for_snapshot(snapshot_id):
     scenarios_dir = get_scenarios_dir()
     scenarios = []
     
-    for file_path in scenarios_dir.glob("*.json"):
-        try:
-            with open(file_path, "r") as f:
+    if not os.path.exists(scenarios_dir):
+        return scenarios
+        
+    for filename in os.listdir(scenarios_dir):
+        if filename.endswith('.json'):
+            with open(os.path.join(scenarios_dir, filename), 'r') as f:
                 scenario_data = json.load(f)
-                
-            if scenario_data.get("snapshot_id") == snapshot_id:
-                scenarios.append(scenario_data)
-        except Exception as e:
-            st.error(f"Error reading scenario file {file_path.name}: {str(e)}")
-    
-    scenarios.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-    
+                if scenario_data.get('snapshot_id') == snapshot_id:
+                    scenarios.append(scenario_data)
+                    
     return scenarios
 
 def add_scenario_to_snapshot(snapshot_id, scenario_id):
@@ -616,3 +606,23 @@ def try_switch_page(page_name, fallback_message=None):
         else:
             st.warning(f"Unable to switch to page '{page_name}'. The page may have been moved or renamed.")
         st.error(f"Error: {str(e)}")
+
+def load_scenario(scenario_name):
+    """Load a scenario from a JSON file
+    
+    Args:
+        scenario_name (str): Name of the scenario to load
+        
+    Returns:
+        dict: The scenario data
+    """
+    scenarios_dir = get_scenarios_dir()
+    scenario_file = os.path.join(scenarios_dir, f"scenario_{scenario_name}.json")
+    
+    if not os.path.exists(scenario_file):
+        raise ValueError(f"No scenario found with name {scenario_name}")
+        
+    with open(scenario_file, 'r') as f:
+        scenario_data = json.load(f)
+        
+    return scenario_data
