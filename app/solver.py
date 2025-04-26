@@ -73,6 +73,11 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
     )
     implementation_notes.append(f"Set maximum distance per vehicle to {max_distance}")
     
+    # Strictly enforce the max distance per vehicle as a hard constraint
+    distance_dimension = routing.GetDimensionOrDie('Distance')
+    for vehicle_id in range(data['num_vehicles']):
+        distance_dimension.CumulVar(routing.End(vehicle_id)).SetMax(max_distance)
+    
     def demand_callback(from_index):
         """Returns the demand of the node."""
         from_node = manager.IndexToNode(from_index)
@@ -117,7 +122,17 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
     solution = routing.SolveWithParameters(search_parameters)
     
     if not solution:
-        return None
+        return {
+            'routes': [],
+            'total_distance': 0,
+            'solution': None,
+            'manager': manager,
+            'routing': routing,
+            'distance_matrix': data['distance_matrix'],
+            'implementation_notes': implementation_notes + [
+                'No solution found. The constraints may be too tight (e.g., max distance per vehicle is too low).'
+            ]
+        }
     
     routes = []
     total_distance = 0
