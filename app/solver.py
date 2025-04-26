@@ -74,7 +74,7 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
     implementation_notes.append(f"Set maximum distance per vehicle to {max_distance}")
     
     distance_dimension = routing.GetDimensionOrDie('Distance')
-    for vehicle_id in range(data['num_vehicles']):
+    for vehicle_id in range(int(data['num_vehicles'])):
         end_index = routing.End(vehicle_id)
         distance_dimension.CumulVar(end_index).SetMax(max_distance)
     
@@ -133,7 +133,7 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
     routes = []
     total_distance = 0
     
-    for vehicle_id in range(data['num_vehicles']):
+    for vehicle_id in range(int(data['num_vehicles'])):
         route = []
         index = routing.Start(vehicle_id)
         route_distance = 0
