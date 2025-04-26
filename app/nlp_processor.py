@@ -17,6 +17,22 @@ MODEL_NAME = "gpt-4"  # Default model
 st.info("📡 Starting GPT integration check...")
 st.text("Checking OpenAI library import...")
 
+def debug_log(msg):
+    try:
+        with open("nlp_debug.log", "a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+            f.flush()
+    except Exception as e:
+        pass
+    print(msg, flush=True)
+
+# Debug: Print what is in st.secrets and environment at import time
+try:
+    debug_log("[DEBUG] st.secrets at import: " + str(dict(getattr(st, 'secrets', {}))))
+except Exception as e:
+    debug_log(f"[DEBUG] st.secrets not available: {e}")
+debug_log("[DEBUG] os.environ OPENAI_API_KEY: " + str(os.environ.get("OPENAI_API_KEY")))
+
 try:
     client = None  # Initialize OpenAI client as None
 except ImportError:
@@ -25,33 +41,58 @@ except ImportError:
 try:
     api_key = st.secrets.get("OPENAI_API_KEY", "")
     MODEL_NAME = st.secrets.get("OPENAI_MODEL", "gpt-3.5-turbo")
-    
     st.text(f"Loaded Model: {MODEL_NAME}")
     st.text(f"API Key Present: {'Yes' if api_key and len(api_key) > 0 else 'No'}")
-    
+    debug_log(f"[DEBUG] api_key from st.secrets: {api_key}")
     if api_key and len(api_key) > 0:
-        client = OpenAI(api_key=api_key)
-        API_KEY_AVAILABLE = True
-        st.success(f"✅ OpenAI client initialized with model: {MODEL_NAME}")
+        try:
+            # Defensive: Only pass supported arguments to OpenAI
+            # If you ever want to use proxies, set them via environment variables or http_client, not here
+            client = OpenAI(api_key=api_key)  # Do NOT pass proxies
+            API_KEY_AVAILABLE = True
+            st.success(f"✅ OpenAI client initialized with model: {MODEL_NAME}")
+            debug_log("[DEBUG] OpenAI client initialized successfully from st.secrets.")
+        except TypeError as e:
+            if 'proxies' in str(e):
+                debug_log("[DEBUG] 'proxies' argument error detected. Not passing proxies to OpenAI client.")
+            st.error(f"❌ Failed to initialize OpenAI client: {str(e)}")
+            debug_log(f"[DEBUG] Exception initializing OpenAI client from st.secrets: {e}")
+        except Exception as e:
+            st.error(f"❌ Failed to initialize OpenAI client: {str(e)}")
+            debug_log(f"[DEBUG] Exception initializing OpenAI client from st.secrets: {e}")
     else:
         st.warning("⚠️ OpenAI API key in Streamlit secrets is empty.")
+        debug_log("[DEBUG] OpenAI API key in Streamlit secrets is empty.")
 except Exception as e:
     st.warning(f"⚠️ Could not load OpenAI API key from Streamlit secrets: {str(e)}")
+    debug_log(f"[DEBUG] Exception loading OpenAI API key from st.secrets: {e}")
 
 if not API_KEY_AVAILABLE:
     try:
         for env_var in ["OPENAI_API_KEY", "vrp_demo_key", "streamlit_demo"]:
             api_key = os.environ.get(env_var, "")
+            debug_log(f"[DEBUG] Trying env var {env_var}: {api_key}")
             if api_key and len(api_key) > 0:
-                client = OpenAI(api_key=api_key)
-                API_KEY_AVAILABLE = True
-                st.success(f"✅ OpenAI API key found in environment variable '{env_var}'. Using model: {MODEL_NAME}")
-                break
-        
+                try:
+                    client = OpenAI(api_key=api_key)  # Do NOT pass proxies
+                    API_KEY_AVAILABLE = True
+                    st.success(f"✅ OpenAI API key found in environment variable '{env_var}'. Using model: {MODEL_NAME}")
+                    debug_log(f"[DEBUG] OpenAI client initialized successfully from env var {env_var}.")
+                    break
+                except TypeError as e:
+                    if 'proxies' in str(e):
+                        debug_log("[DEBUG] 'proxies' argument error detected. Not passing proxies to OpenAI client.")
+                    st.error(f"❌ Failed to initialize OpenAI client from env var {env_var}: {str(e)}")
+                    debug_log(f"[DEBUG] Exception initializing OpenAI client from env var {env_var}: {e}")
+                except Exception as e:
+                    st.error(f"❌ Failed to initialize OpenAI client from env var {env_var}: {str(e)}")
+                    debug_log(f"[DEBUG] Exception initializing OpenAI client from env var {env_var}: {e}")
         if not API_KEY_AVAILABLE:
             st.error("❌ OpenAI API key not found. Please add OPENAI_API_KEY to your Streamlit secrets or environment variables.")
+            debug_log("[DEBUG] OpenAI API key not found after all attempts.")
     except Exception as e:
         st.error(f"❌ Error accessing environment variables: {str(e)}")
+        debug_log(f"[DEBUG] Exception accessing environment variables: {e}")
         API_KEY_AVAILABLE = False
 
 def process_query(query, route_info=None, kpi_df=None, detailed_df=None, vehicle_capacity=None, context=None, mode="analysis"):
@@ -497,4 +538,119 @@ Supported constraint types:
             "constraints": {},
             "summary": "Error processing constraints",
             "analysis": f"Error: {str(e)}"
+        }
+
+def robust_process_constraint_prompt(prompt, scenario_context=None):
+    """Process a constraint prompt with additional scenario context using GPT.
+    
+    Args:
+        prompt (str): The user's natural language constraint prompt
+        scenario_context (dict): Additional context about the scenario including:
+            - snapshot_name (str): Name of the scenario snapshot
+            - num_vehicles (int): Number of vehicles in the scenario
+            - vehicle_capacity (int): Capacity of each vehicle
+            
+    Returns:
+        dict: Contains extracted constraints, summary, and processing notes
+    """
+    if not API_KEY_AVAILABLE or client is None:
+        return {
+            "constraints": {},
+            "summary": "API Error",
+            "notes": "OpenAI API key not configured. Please add OPENAI_API_KEY to your secrets."
+        }
+    
+    try:
+        # Construct the full prompt with context
+        context_str = ""
+        if scenario_context:
+            context_str = "\nScenario context:\n"
+            for key, value in scenario_context.items():
+                context_str += f"- {key}: {value}\n"
+        
+        full_prompt = f"""User prompt: "{prompt}"{context_str}
+
+Respond in the following JSON format:
+{{
+    "constraints": {{
+        // Extracted constraints as key-value pairs
+        // Supported types:
+        // - max_distance_per_vehicle: number
+        // - max_customers_per_vehicle: number
+        // - capacity_limit: number
+        // - allowed_zones: list
+        // - time_windows: dict
+    }},
+    "summary": "Brief summary of what constraints were found",
+    "notes": "Additional notes about the constraints and how they affect the scenario"
+}}"""
+
+        # Log the full prompt for debugging
+        st.text_area("Debug - Full Prompt:", full_prompt, height=200)
+        
+        messages = [
+            {
+                "role": "system",
+                "content": """You are a constraint extraction assistant for a Vehicle Routing Problem (VRP).
+Your task is to extract structured constraints from natural language descriptions and scenario context.
+You MUST respond with a valid JSON object containing exactly these fields:
+- constraints: Dictionary of extracted constraints
+- summary: Brief summary of constraints found
+- notes: Additional notes about the constraints
+
+Example valid response:
+{
+    "constraints": {
+        "max_distance_per_vehicle": 40
+    },
+    "summary": "Set maximum distance per vehicle to 40KM",
+    "notes": "This constraint will ensure no vehicle travels more than 40 kilometers in their route"
+}"""
+            },
+            {"role": "user", "content": full_prompt}
+        ]
+        
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            temperature=0.3,
+            max_tokens=1000
+        )
+        
+        response_text = response.choices[0].message.content.strip()
+        
+        # Log the raw response for debugging
+        st.text_area("Debug - Raw GPT Response:", response_text, height=200)
+        
+        try:
+            # Parse the response as JSON
+            response_data = json.loads(response_text)
+            
+            # Validate required fields
+            if not all(key in response_data for key in ['constraints', 'summary', 'notes']):
+                st.error("❌ GPT response missing required fields. Please try rephrasing.")
+                return {
+                    "constraints": {},
+                    "summary": "Invalid response format",
+                    "notes": "GPT response missing required fields"
+                }
+            
+            # If successful, return the parsed response
+            st.success(f"✅ Successfully processed constraint: {response_data['summary']}")
+            return response_data
+            
+        except json.JSONDecodeError as e:
+            st.error("❌ Unable to interpret the constraint. Please try rephrasing.")
+            return {
+                "constraints": {},
+                "summary": "Parsing failed",
+                "notes": f"GPT did not return valid JSON: {str(e)}"
+            }
+        
+    except Exception as e:
+        st.error(f"❌ Error processing constraint: {str(e)}")
+        return {
+            "constraints": {},
+            "summary": "Processing error",
+            "notes": f"Error: {str(e)}"
         }
