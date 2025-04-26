@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-import datetime
+from datetime import datetime
 import json
 import uuid
 import numpy as np
@@ -157,7 +157,7 @@ def update_scenario_results(scenario_id, results):
             'kpi_df': results.get('kpi_df', []),
             'detailed_df': results.get('detailed_df', []),
             'vehicle_capacity': int(results.get('vehicle_capacity', 0)),
-            'timestamp': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         
         # Add implementation notes to the last prompt history entry if it exists
