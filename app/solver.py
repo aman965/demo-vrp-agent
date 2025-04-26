@@ -62,18 +62,17 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
     transit_callback_index = routing.RegisterTransitCallback(distance_callback)
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
     
-    # Add Distance constraint dimension
+    # Add Distance constraint dimension (strict)
     max_distance = extra_constraints.get('max_distance_per_vehicle', 100000) if extra_constraints else 100000
     routing.AddDimension(
         transit_callback_index,
         0,  # null slack
         max_distance,  # maximum distance per vehicle
-        True,  # start cumul to zero
+        False,  # do not force start cumul to zero (strict)
         'Distance'
     )
     implementation_notes.append(f"Set maximum distance per vehicle to {max_distance}")
     
-    # Strictly enforce the max distance per vehicle as a hard constraint
     distance_dimension = routing.GetDimensionOrDie('Distance')
     for vehicle_id in range(data['num_vehicles']):
         end_index = routing.End(vehicle_id)
@@ -112,12 +111,8 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
         implementation_notes.append(f"Added constraint: maximum {max_customers} customers per vehicle")
     
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-    search_parameters.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
-    )
-    search_parameters.local_search_metaheuristic = (
-        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
-    )
+    search_parameters.use_full_propagation = True
+    search_parameters.solution_limit = 1
     search_parameters.time_limit.seconds = 30
     
     solution = routing.SolveWithParameters(search_parameters)
@@ -131,7 +126,7 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
             'routing': routing,
             'distance_matrix': data['distance_matrix'],
             'implementation_notes': implementation_notes + [
-                '⚠️ No feasible solution found under the given constraints.'
+                '⚠️ No feasible solution found under max distance constraint.'
             ]
         }
     
