@@ -29,14 +29,21 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
         constraint_prompt (str, optional): Natural language constraint prompt
         constraint_analysis (str, optional): Analysis of constraints
         prompt_history (list, optional): List of prompt history entries
+        
+    Returns:
+        dict: The saved scenario data including the scenario_id
     """
     # Get snapshot data
     snapshot = get_snapshot_by_id(snapshot_id)
     if not snapshot:
         raise ValueError(f"No snapshot found with ID {snapshot_id}")
+    
+    # Generate a unique scenario ID
+    scenario_id = str(uuid.uuid4())
         
     # Create scenario data
     scenario_data = {
+        "scenario_id": scenario_id,
         "snapshot_id": snapshot_id,
         "scenario_name": scenario_name,
         "num_vehicles": num_vehicles,
@@ -56,11 +63,11 @@ def save_scenario(snapshot_id, scenario_name, num_vehicles, vehicle_capacity, co
     scenarios_dir = get_scenarios_dir()
     os.makedirs(scenarios_dir, exist_ok=True)
     
-    scenario_file = os.path.join(scenarios_dir, f"scenario_{scenario_name}.json")
+    scenario_file = os.path.join(scenarios_dir, f"scenario_{scenario_id}.json")
     with open(scenario_file, 'w') as f:
         json.dump(scenario_data, f, indent=2, cls=CustomJSONEncoder)
         
-    return scenario_file
+    return scenario_data
 
 def get_scenarios_for_snapshot(snapshot_id):
     """Get all scenarios associated with a snapshot
