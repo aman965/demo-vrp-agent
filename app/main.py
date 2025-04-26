@@ -310,9 +310,9 @@ if st.session_state.selected_df is not None or use_sample_data:
                 # Extract constraints from scenario if available
                 extra_constraints = None
                 if st.session_state.selected_scenario:
-                    extra_constraints = st.session_state.selected_scenario['config'].get('constraints')
+                    extra_constraints = st.session_state.selected_scenario['config'].get('extra_constraints')
                     if extra_constraints:
-                        add_log_message(f"Applying extra constraints: {extra_constraints}")
+                        add_log_message(f"Applying extra_constraints: {extra_constraints}")
                 
                 solution_data = solve_cvrp(
                     distance_matrix=distance_matrix,
