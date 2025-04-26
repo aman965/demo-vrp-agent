@@ -308,9 +308,11 @@ if st.session_state.selected_df is not None or use_sample_data:
                 start_time = time.time()
                 
                 # Extract constraints from scenario if available
-                extra_constraints = None
+                extra_constraints = {}
                 if st.session_state.selected_scenario:
-                    extra_constraints = st.session_state.selected_scenario.get('constraint_analysis', {}).get('constraints')
+                    extra_constraints_info = st.session_state.selected_scenario.get('constraint_analysis', {})
+                    if extra_constraints_info:
+                        extra_constraints = st.session_state.selected_scenario.get('constraint_analysis', {}).get('constraints')
                     if extra_constraints:
                         add_log_message(f"Applying extra_constraints: {extra_constraints}")
                 
