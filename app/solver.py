@@ -143,7 +143,11 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
             route.append(node_index)
             previous_index = index
             index = solution.Value(routing.NextVar(index))
-            route_distance += routing.GetArcCostForVehicle(previous_index, index, vehicle_id)
+            route_distance += routing.GetArcCostForVehicle(
+                int(previous_index),
+                int(index),
+                int(vehicle_id)
+            )
             
         route.append(manager.IndexToNode(index))
         routes.append(route)
