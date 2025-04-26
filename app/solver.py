@@ -57,7 +57,7 @@ def solve_cvrp(distance_matrix, demands, vehicle_count, vehicle_capacity, extra_
         """Returns the distance between the two nodes."""
         from_node = manager.IndexToNode(from_index)
         to_node = manager.IndexToNode(to_index)
-        return data['distance_matrix'][from_node][to_node]
+        return int(data['distance_matrix'][from_node][to_node])
     
     transit_callback_index = routing.RegisterTransitCallback(distance_callback)
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
